@@ -5,10 +5,13 @@
 const Store = (() => {
   const KEY = 'trainingArena.v1';
 
+  // index.html 裡寫死的班級設定，當作預設值
+  const BUILT_IN = window.ARENA_CONFIG || {};
+
   const DEFAULTS = {
     className: '訓練競技場',
-    sheetId: '',
-    sheetName: '',
+    sheetId: BUILT_IN.sheetId || '',
+    sheetName: BUILT_IN.sheetName || '',
     autoSync: false,
     weights: { quality: 30, performance: 30, exam: 40 },
     options: { anim: true, sound: true, blind: false },
@@ -24,12 +27,18 @@ const Store = (() => {
       const raw = localStorage.getItem(KEY);
       if (!raw) return structuredClone(DEFAULTS);
       const saved = JSON.parse(raw);
-      return {
+      const merged = {
         ...structuredClone(DEFAULTS),
         ...saved,
         weights: { ...DEFAULTS.weights, ...(saved.weights || {}) },
         options: { ...DEFAULTS.options, ...(saved.options || {}) }
       };
+      // 舊的存檔裡 sheetId 是空字串，會蓋掉 index.html 新設定的預設值
+      if (!merged.sheetId && DEFAULTS.sheetId) {
+        merged.sheetId = DEFAULTS.sheetId;
+        merged.sheetName = DEFAULTS.sheetName;
+      }
+      return merged;
     } catch (e) {
       console.warn('[Store] 讀取本機資料失敗，改用預設值', e);
       return structuredClone(DEFAULTS);
@@ -255,6 +264,17 @@ const Sheet = (() => {
 
   const FALLBACK_AVATARS = ['🦊','🐯','🐼','🦁','🐺','🦉','🐧','🦄','🐲','🦅','🐬','🦈','🐝','🦖','🐙','🦋','🐳'];
 
+  /**
+   * 頭像欄要真的含 emoji 才採用。
+   * 留空、編碼壞掉、或誤填成文字時，都退回自動配的動物頭像，
+   * 才不會在榜上出現一串亂碼。
+   */
+  function pickAvatar(raw, n) {
+    const v = (raw || '').trim();
+    if (v && /\p{Extended_Pictographic}/u.test(v)) return v;
+    return FALLBACK_AVATARS[n % FALLBACK_AVATARS.length];
+  }
+
   function rowsToStudents(rows) {
     if (rows.length < 2) throw new Error('試算表至少要有表頭與一列資料');
 
@@ -281,7 +301,7 @@ const Sheet = (() => {
         id: idFor(name),
         name,
         team: pick(r, idx.team),
-        avatar: pick(r, idx.avatar) || FALLBACK_AVATARS[n % FALLBACK_AVATARS.length],
+        avatar: pickAvatar(pick(r, idx.avatar), n),
         quality:     clamp100(pick(r, idx.quality)),
         performance: clamp100(pick(r, idx.performance)),
         exam:        clamp100(pick(r, idx.exam))

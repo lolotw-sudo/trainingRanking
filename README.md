@@ -9,12 +9,29 @@
 
 ## 快速開始
 
-直接用瀏覽器打開 `index.html` 就會跑起來（第一次會自動載入 17 人示範資料）。
+直接用瀏覽器打開 `index.html` 就會跑起來 —— 試算表已經接好了，開啟時會自動同步。
 要放給學員用手機看，把整個資料夾丟上 GitHub Pages 或任何靜態空間即可 —— 沒有任何相依套件、不需要伺服器。
+
+### 換班級 / 換試算表
+
+改 `index.html` 最下面那段設定就好，不用動其他檔案：
+
+```js
+window.ARENA_CONFIG = {
+  sheetId: '11JriwpqMiTgl0itBTGQfW1c086J4OcTu0yrC0JsT668',
+  sheetName: ''        // 分頁名稱；留空讀第一個分頁
+};
+```
+
+`sheetId` 就是試算表網址中間那一段：
+`https://docs.google.com/spreadsheets/d/【這一段】/edit`
+
+也可以不改檔案，直接在網頁的「設定」貼上新連結 —— 那會存在該台瀏覽器裡，只影響你自己那台。
+寫進 `index.html` 的才是所有人打開都會看到的預設值。
 
 ---
 
-## 接上你的 Google 試算表
+## 自己準備試算表
 
 1. 開一份新的 Google 試算表，**第一列**填欄位名稱：
 

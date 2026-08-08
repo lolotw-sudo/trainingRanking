@@ -190,6 +190,18 @@
 <canvas id="fxCanvas" aria-hidden="true"></canvas>
 <div class="toast-stack" id="toasts" aria-live="polite"></div>
 
+<!-- ══════════════════════════════════════════════════════════
+     班級設定 —— 換班級時只要改這裡的試算表 ID
+     試算表必須設為「知道連結的任何人 → 檢視者」，網頁才讀得到
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  window.ARENA_CONFIG = {
+    // https://docs.google.com/spreadsheets/d/【這一段就是 ID】/edit
+    sheetId: '11JriwpqMiTgl0itBTGQfW1c086J4OcTu0yrC0JsT668',
+    sheetName: ''        // 分頁名稱；留空讀第一個分頁
+  };
+</script>
+
 <script src="js/data.js"></script>
 <script src="js/effects.js"></script>
 <script src="js/ui.js"></script>
