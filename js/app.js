@@ -113,6 +113,67 @@
   function switchView(name) {
     $$('.tab').forEach(t => t.classList.toggle('is-active', t.dataset.view === name));
     $$('.view').forEach(v => v.classList.toggle('is-active', v.id === `view-${name}`));
+    if (name === 'settings') applyLockState();
+  }
+
+  /* ── 設定鎖 ───────────────────────────────────────────
+     純前端的「防手癢」鎖：沒有伺服器可以驗證密碼，懂開發者工具的人
+     可以繞過。目的是避免共用電腦或投影機上有人隨手改到設定。
+     解鎖狀態存在 sessionStorage，關掉瀏覽器就自動恢復鎖定。
+     ─────────────────────────────────────────────────── */
+
+  const UNLOCK_KEY = 'trainingArena.unlocked';
+  let unlocked = false;
+
+  const lockHash = () => (window.ARENA_CONFIG && window.ARENA_CONFIG.settingsPasswordHash) || '';
+  const lockEnabled = () => lockHash().length > 0;
+
+  async function sha256(text) {
+    const bytes = new TextEncoder().encode(text);
+    const buf = await crypto.subtle.digest('SHA-256', bytes);
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function applyLockState() {
+    const locked = lockEnabled() && !unlocked;
+    $('#settingsLock').hidden = !locked;
+    $('#settingsWrap').hidden = locked;
+    $('#relockRow').hidden = !lockEnabled() || locked;
+    if (locked) $('#lockInput').value = '';
+  }
+
+  function setUnlocked(on) {
+    unlocked = on;
+    try {
+      if (on) sessionStorage.setItem(UNLOCK_KEY, '1');
+      else sessionStorage.removeItem(UNLOCK_KEY);
+    } catch (e) { /* 無痕模式可能不給寫，忽略 */ }
+    applyLockState();
+  }
+
+  async function tryUnlock(e) {
+    e.preventDefault();
+    const msg = $('#lockMsg');
+    const input = $('#lockInput').value;
+
+    if (!input) { msg.textContent = '請輸入密碼。'; msg.className = 'lock-msg err'; return; }
+
+    if (!window.crypto || !crypto.subtle) {
+      msg.textContent = '這個瀏覽器不支援密碼驗證，請改用 https 網址開啟。';
+      msg.className = 'lock-msg err';
+      return;
+    }
+
+    if (await sha256(input) === lockHash()) {
+      msg.textContent = '';
+      setUnlocked(true);
+      FX.toast('🔓 設定已解鎖', 'ok');
+    } else {
+      msg.textContent = '密碼不對，再試一次。';
+      msg.className = 'lock-msg err';
+      $('#lockInput').value = '';
+      $('#lockInput').focus();
+    }
   }
 
   /* ── 權重滑桿 ─────────────────────────────────────── */
@@ -268,6 +329,12 @@
       FX.toast('已清除本機資料');
     });
 
+    $('#lockForm').addEventListener('submit', tryUnlock);
+    $('#btnRelock').addEventListener('click', () => {
+      setUnlocked(false);
+      FX.toast('🔒 設定已重新鎖定');
+    });
+
     $('#drawerClose').addEventListener('click', UI.closeCard);
     $('#drawerScrim').addEventListener('click', UI.closeCard);
 
@@ -298,9 +365,12 @@
     FX.startBackground(document.getElementById('bgCanvas'));
     FX.initConfetti(document.getElementById('fxCanvas'));
 
+    try { unlocked = sessionStorage.getItem(UNLOCK_KEY) === '1'; } catch (e) { unlocked = false; }
+
     hydrateSettings();
     bindWeights();
     bindEvents();
+    applyLockState();
     refresh();
 
     const st = S();
