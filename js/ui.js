@@ -1,0 +1,388 @@
+/* ============================================================
+   ui.js — 排行榜、頒獎台、隊伍戰、個人戰績卡的畫面渲染
+   ============================================================ */
+
+const UI = (() => {
+
+  const $  = sel => document.querySelector(sel);
+  const $$ = sel => [...document.querySelectorAll(sel)];
+
+  const esc = s => String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  let lastChampionId = null;
+
+  /* ── 主排行榜 ─────────────────────────────────────── */
+
+  function renderBoard(rows, options) {
+    const board = $('#board');
+    const empty = $('#boardEmpty');
+
+    $('#rosterCount').textContent = `${rows.length} 位學員`;
+    empty.hidden = rows.length > 0;
+
+    // FLIP: 先量測現有卡片位置
+    const existing = [...board.children];
+    const before = FX.flipRead(existing);
+
+    const byId = new Map(existing.map(n => [n.dataset.id, n]));
+    const frag = document.createDocumentFragment();
+
+    rows.forEach(r => {
+      const node = byId.get(r.id) || createRow(r);
+      byId.delete(r.id);
+      updateRow(node, r, options);
+      frag.appendChild(node);           // appendChild 會自動搬移既有節點，維持 DOM 身分
+    });
+
+    byId.forEach(n => n.remove());      // 名單上已移除的學員
+    board.appendChild(frag);
+
+    FX.flipPlay([...board.children], before);
+    renderPodium(rows, options);
+
+    // 冠軍易主 → 全場彩帶
+    const champ = rows[0]?.id ?? null;
+    if (champ && lastChampionId && champ !== lastChampionId) {
+      FX.celebrate();
+      FX.toast(`👑 ${rows[0].name} 登頂了！`, 'ok');
+    }
+    lastChampionId = champ;
+  }
+
+  function createRow(r) {
+    const li = document.createElement('li');
+    li.className = 'row';
+    li.dataset.id = r.id;
+    li.tabIndex = 0;
+    li.innerHTML = `
+      <div class="rank-cell"><span class="rank-num"></span></div>
+      <div class="row-avatar"></div>
+      <div class="row-id">
+        <div class="row-name"></div>
+        <div class="row-meta"></div>
+      </div>
+      <div class="bars">
+        <div class="bar-track bar-q"><i class="bar-fill"></i></div>
+        <div class="bar-track bar-p"><i class="bar-fill"></i></div>
+        <div class="bar-track bar-e"><i class="bar-fill"></i></div>
+      </div>
+      <div class="total-cell">
+        <div class="total-num">0</div>
+        <div class="total-label">戰力</div>
+      </div>
+      <div class="delta-cell"></div>`;
+
+    const open = () => openCard(li.dataset.id);
+    li.addEventListener('click', open);
+    li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    return li;
+  }
+
+  function updateRow(li, r, options) {
+    li.dataset.rank = r.rank;
+    li.classList.toggle('blind', !!options.blind);
+
+    li.querySelector('.rank-num').textContent = r.rank;
+    li.querySelector('.row-avatar').textContent = r.avatar;
+
+    const streak = r.badges.some(b => b.name === '連霸');
+    li.querySelector('.row-name').innerHTML =
+      esc(r.name) + (streak ? ' <span class="streak">🔥</span>' : '');
+
+    li.querySelector('.row-meta').innerHTML = [
+      `<span class="tier tier-${r.tier}">${r.tier}</span>`,
+      r.team ? `<span class="team-tag">${esc(r.team)}</span>` : '',
+      r.badges.length
+        ? `<span class="badges">${r.badges.slice(0, 4)
+            .map(b => `<span class="badge" title="${esc(b.name)}：${esc(b.desc)}">${b.icon}</span>`).join('')}</span>`
+        : ''
+    ].join('');
+
+    const fills = li.querySelectorAll('.bar-fill');
+    fills[0].style.width = r.quality + '%';
+    fills[1].style.width = r.performance + '%';
+    fills[2].style.width = r.exam + '%';
+
+    FX.countTo(li.querySelector('.total-num'), r.total, 1);
+    li.querySelector('.delta-cell').innerHTML = deltaChip(r);
+  }
+
+  function deltaChip(r) {
+    if (r.prevRank == null) return `<span class="delta delta-new">NEW</span>`;
+    if (r.delta > 0)  return `<span class="delta delta-up pulse">▲${r.delta}</span>`;
+    if (r.delta < 0)  return `<span class="delta delta-down pulse">▼${-r.delta}</span>`;
+    return `<span class="delta delta-same">–</span>`;
+  }
+
+  /* ── 頒獎台 ───────────────────────────────────────── */
+
+  const PLACE_TAG = { 1: 'CHAMPION', 2: 'RUNNER-UP', 3: 'THIRD' };
+  const CROWN     = { 1: '👑', 2: '🥈', 3: '🥉' };
+
+  function renderPodium(rows, options) {
+    const pod = $('#podium');
+    const top = rows.slice(0, 3);
+
+    if (top.length < 3) { pod.innerHTML = ''; return; }
+
+    // 名次組成沒變就不重建，避免每次同步都重播進場動畫
+    const sig = top.map(r => r.id).join('|');
+    if (pod.dataset.sig === sig) {
+      top.forEach((r, i) => {
+        const el = pod.querySelector(`.pod[data-place="${i + 1}"]`);
+        if (!el) return;
+        el.classList.toggle('blind', !!options.blind);
+        FX.countTo(el.querySelector('.pod-score'), r.total, 1);
+      });
+      return;
+    }
+    pod.dataset.sig = sig;
+
+    pod.innerHTML = top.map((r, i) => `
+      <div class="pod ${options.blind ? 'blind' : ''}" data-place="${i + 1}" data-id="${esc(r.id)}" tabindex="0">
+        <span class="pod-crown">${CROWN[i + 1]}</span>
+        <div class="pod-avatar">${esc(r.avatar)}</div>
+        <div class="pod-name">${esc(r.name)}</div>
+        <div class="pod-score" data-value="0">0</div>
+        <div class="pod-place-tag">${PLACE_TAG[i + 1]}</div>
+      </div>`).join('');
+
+    pod.querySelectorAll('.pod').forEach((el, i) => {
+      FX.countTo(el.querySelector('.pod-score'), top[i].total, 1);
+      el.addEventListener('click', () => openCard(el.dataset.id));
+    });
+  }
+
+  /* ── 隊伍戰 ───────────────────────────────────────── */
+
+  function renderTeams(teams) {
+    const grid = $('#teamGrid');
+    const empty = $('#teamEmpty');
+
+    $('#teamCount').textContent = `${teams.length} 隊`;
+    empty.hidden = teams.length > 0;
+
+    if (!teams.length) { grid.innerHTML = ''; return; }
+
+    const max = teams[0].score || 100;
+
+    grid.innerHTML = teams.map((t, i) => `
+      <div class="team-card" data-rank="${t.rank}" style="animation-delay:${i * 70}ms">
+        <div class="team-head">
+          <span class="team-rank">${t.rank}</span>
+          <span class="team-name">${esc(t.name)}</span>
+          <span class="team-score">${t.score.toFixed(1)}</span>
+        </div>
+        <div class="team-bar"><i data-w="${(t.score / max) * 100}"></i></div>
+        <div class="team-members">
+          ${t.members.map(m => `<span class="team-member">${esc(m.avatar)} ${esc(m.name)} <b>#${m.rank}</b></span>`).join('')}
+        </div>
+      </div>`).join('');
+
+    // 下一幀才設寬度，讓長條有拉伸動畫
+    requestAnimationFrame(() => {
+      grid.querySelectorAll('.team-bar > i').forEach(i => i.style.width = i.dataset.w + '%');
+    });
+  }
+
+  /* ── 個人戰績卡 ───────────────────────────────────── */
+
+  let cardRows = [];
+  const setCardData = rows => { cardRows = rows; };
+
+  function openCard(id) {
+    const r = cardRows.find(x => x.id === id);
+    if (!r) return;
+
+    $('#drawerBody').innerHTML = playerCardHTML(r);
+    $('#drawer').hidden = false;
+    $('#drawerScrim').hidden = false;
+
+    drawRadar($('#pcRadar'), r);
+    drawSparkline($('#pcSpark'), r.id);
+
+    requestAnimationFrame(() => {
+      $$('#drawerBody .bar-fill').forEach(f => f.style.width = f.dataset.w + '%');
+    });
+  }
+
+  function closeCard() {
+    $('#drawer').hidden = true;
+    $('#drawerScrim').hidden = true;
+  }
+
+  function playerCardHTML(r) {
+    const hist = Store.state.history;
+    const bestRank = hist.reduce((best, h) => {
+      const v = h.ranks[r.id];
+      return v && v < best ? v : best;
+    }, r.rank);
+
+    return `
+      <div class="pc-head">
+        <div class="pc-avatar">${esc(r.avatar)}</div>
+        <div>
+          <div class="pc-name">${esc(r.name)}</div>
+          <div class="pc-sub">
+            <span class="tier tier-${r.tier}">${r.tier}</span>
+            ${r.team ? `<span class="team-tag">${esc(r.team)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="pc-hero">
+        <div class="pc-stat"><b>#${r.rank}</b><span>目前名次</span></div>
+        <div class="pc-stat"><b>${r.total.toFixed(1)}</b><span>總戰力</span></div>
+        <div class="pc-stat"><b>#${bestRank}</b><span>生涯最佳</span></div>
+        <div class="pc-stat"><b>${r.prevRank == null ? '—' : (r.delta > 0 ? '▲' + r.delta : r.delta < 0 ? '▼' + -r.delta : '持平')}</b><span>本回合變化</span></div>
+      </div>
+
+      <div class="pc-section">
+        <h4>能力三角</h4>
+        <div class="radar-wrap"><svg id="pcRadar" width="240" height="215" viewBox="0 0 240 215"></svg></div>
+      </div>
+
+      <div class="pc-section">
+        <h4>三維成績</h4>
+        <div class="pc-dims">
+          ${dimRow('品質成績', 'q', r.quality)}
+          ${dimRow('上課表現', 'p', r.performance)}
+          ${dimRow('考試成績', 'e', r.exam)}
+        </div>
+      </div>
+
+      <div class="pc-section">
+        <h4>名次走勢</h4>
+        ${hist.length >= 2
+          ? `<svg id="pcSpark" class="spark" viewBox="0 0 300 84" preserveAspectRatio="none"></svg>`
+          : `<p class="spark-empty">存檔兩個回合以上才會出現走勢圖。</p><svg id="pcSpark" hidden></svg>`}
+      </div>
+
+      <div class="pc-section">
+        <h4>徽章牆</h4>
+        <div class="pc-badges">
+          ${r.badges.map(b => `<span class="pc-badge">${b.icon} ${esc(b.name)}</span>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  function dimRow(label, key, value) {
+    return `
+      <div class="pc-dim">
+        <span>${label}</span>
+        <span class="bar-track bar-${key}"><i class="bar-fill" data-w="${value}"></i></span>
+        <b>${value}</b>
+      </div>`;
+  }
+
+  /* ── 雷達圖（三軸） ───────────────────────────────── */
+
+  function drawRadar(svg, r) {
+    if (!svg) return;
+    const cx = 120, cy = 112, R = 82;
+    const axes = [
+      { label: '品質', value: r.quality,     color: 'var(--q)' },
+      { label: '表現', value: r.performance, color: 'var(--p)' },
+      { label: '考試', value: r.exam,        color: 'var(--e)' }
+    ];
+
+    const pt = (i, ratio) => {
+      const a = -Math.PI / 2 + i * (Math.PI * 2 / 3);
+      return [cx + Math.cos(a) * R * ratio, cy + Math.sin(a) * R * ratio];
+    };
+
+    let out = '';
+
+    // 網格
+    [.25, .5, .75, 1].forEach(ring => {
+      const pts = axes.map((_, i) => pt(i, ring).map(n => n.toFixed(1)).join(',')).join(' ');
+      out += `<polygon points="${pts}" fill="none" stroke="rgba(140,165,255,.16)" stroke-width="1"/>`;
+    });
+    axes.forEach((_, i) => {
+      const [x, y] = pt(i, 1);
+      out += `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(140,165,255,.16)"/>`;
+    });
+
+    // 數值多邊形（從中心展開）
+    const target = axes.map((a, i) => pt(i, Math.max(a.value, 1) / 100).map(n => n.toFixed(1)).join(',')).join(' ');
+    const start  = axes.map((_, i) => `${cx},${cy}`).join(' ');
+
+    out += `<polygon points="${FX.animOn ? start : target}" fill="rgba(34,211,238,.24)"
+              stroke="#22d3ee" stroke-width="2" stroke-linejoin="round" id="radarPoly"
+              style="filter:drop-shadow(0 0 10px rgba(34,211,238,.6))"/>`;
+
+    axes.forEach((a, i) => {
+      const [x, y] = pt(i, Math.max(a.value, 1) / 100);
+      out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="${a.color}"/>`;
+      const [lx, ly] = pt(i, 1.22);
+      out += `<text x="${lx.toFixed(1)}" y="${(ly + 4).toFixed(1)}" text-anchor="middle"
+                font-size="11" fill="#9aa4d0">${a.label} ${a.value}</text>`;
+    });
+
+    svg.innerHTML = out;
+
+    if (FX.animOn) {
+      requestAnimationFrame(() => {
+        const poly = svg.querySelector('#radarPoly');
+        poly?.animate([{ points: start }, { points: target }],
+          { duration: 750, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' });
+        // points 屬性在部分瀏覽器不可動畫，保底直接設值
+        setTimeout(() => poly?.setAttribute('points', target), 40);
+      });
+    }
+  }
+
+  /* ── 名次走勢 ─────────────────────────────────────── */
+
+  function drawSparkline(svg, id) {
+    if (!svg || svg.hidden) return;
+    const hist = Store.state.history;
+    const series = hist.map(h => h.ranks[id]).filter(v => v != null);
+    if (series.length < 2) return;
+
+    const W = 300, H = 84, pad = 10;
+    const total = Store.state.students.length || Math.max(...series);
+    const x = i => pad + (i / (series.length - 1)) * (W - pad * 2);
+    const y = v => pad + ((v - 1) / Math.max(1, total - 1)) * (H - pad * 2);  // 名次 1 在最上面
+
+    const pts = series.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+
+    svg.innerHTML = `
+      <polyline points="${pts}" fill="none" stroke="#22d3ee" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round"
+        style="filter:drop-shadow(0 0 8px rgba(34,211,238,.7))"/>
+      ${series.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5"
+        fill="${i === series.length - 1 ? '#ffd54a' : '#22d3ee'}"/>`).join('')}
+      <text x="${pad}" y="${H - 1}" font-size="9" fill="#626b96">第 1 回合</text>
+      <text x="${W - pad}" y="${H - 1}" font-size="9" fill="#626b96" text-anchor="end">最新</text>`;
+
+    if (FX.animOn) {
+      const line = svg.querySelector('polyline');
+      const len = line.getTotalLength?.() || 400;
+      line.style.strokeDasharray = len;
+      line.style.strokeDashoffset = len;
+      line.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }],
+        { duration: 800, easing: 'ease-out', fill: 'forwards' });
+    }
+  }
+
+  /* ── 賽季紀錄清單 ─────────────────────────────────── */
+
+  function renderSnapshots() {
+    const list = document.getElementById('snapshotList');
+    const hist = Store.state.history;
+    list.innerHTML = hist.slice().reverse().map(h => {
+      const champName = Store.state.students.find(s => s.id === h.champion)?.name || '—';
+      return `<li>
+        <span>${esc(h.label)}</span>
+        <span class="snap-champ">👑 ${esc(champName)}</span>
+      </li>`;
+    }).join('');
+  }
+
+  return {
+    renderBoard, renderTeams, renderSnapshots,
+    openCard, closeCard, setCardData, esc, $, $$
+  };
+})();

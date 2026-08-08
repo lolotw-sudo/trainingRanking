@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Training Arena · 訓練競技場</title>
+<meta name="description" content="訓練課程互動排行榜：品質成績、上課表現、考試成績三維戰力即時排位。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<canvas id="bgCanvas" aria-hidden="true"></canvas>
+<div class="aurora" aria-hidden="true"></div>
+<div class="grid-floor" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">🏆</span>
+    <div class="brand-text">
+      <h1 id="className">訓練競技場</h1>
+      <p class="brand-sub"><span id="seasonLabel">賽季進行中</span> · <span id="syncStatus" class="sync-idle">尚未同步</span></p>
+    </div>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" data-view="solo" role="tab">個人榜</button>
+    <button class="tab" data-view="team" role="tab">隊伍戰</button>
+    <button class="tab" data-view="settings" role="tab">設定</button>
+  </nav>
+
+  <div class="topbar-actions">
+    <button class="btn btn-ghost" id="btnSync" title="從 Google 試算表重新讀取 (R)">
+      <span class="btn-ico">🔄</span><span class="btn-label">同步</span>
+    </button>
+    <button class="btn btn-ghost" id="btnSnapshot" title="把目前名次存成一個回合，之後才能算進退步 (S)">
+      <span class="btn-ico">📌</span><span class="btn-label">存檔回合</span>
+    </button>
+    <button class="btn btn-primary" id="btnCeremony" title="全螢幕頒獎典禮 (C)">
+      <span class="btn-ico">🎬</span><span class="btn-label">頒獎典禮</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- ══════════ 個人榜 ══════════ -->
+  <section class="view is-active" id="view-solo">
+    <div class="podium" id="podium" aria-label="前三名頒獎台"></div>
+
+    <div class="board-head">
+      <div class="board-title">
+        <h2>排位榜</h2>
+        <span class="chip chip-count" id="rosterCount">0 位學員</span>
+      </div>
+      <div class="weight-mini" id="weightMini"></div>
+    </div>
+
+    <ol class="board" id="board" aria-live="polite"></ol>
+    <p class="board-empty" id="boardEmpty" hidden>尚無資料。到「設定」貼上 Google 試算表連結後按同步。</p>
+  </section>
+
+  <!-- ══════════ 隊伍戰 ══════════ -->
+  <section class="view" id="view-team">
+    <div class="board-head">
+      <div class="board-title"><h2>隊伍積分戰</h2><span class="chip" id="teamCount">0 隊</span></div>
+      <p class="hint">隊伍分數 = 該組成員平均戰力。在試算表的「組別」欄填上組名即可自動分組。</p>
+    </div>
+    <div class="team-grid" id="teamGrid"></div>
+    <p class="board-empty" id="teamEmpty" hidden>試算表中沒有「組別」欄位，或所有人都未分組。</p>
+  </section>
+
+  <!-- ══════════ 設定 ══════════ -->
+  <section class="view" id="view-settings">
+    <div class="settings-wrap">
+
+      <div class="panel">
+        <h3 class="panel-title">📊 Google 試算表連動</h3>
+        <label class="field">
+          <span class="field-label">試算表連結或 ID</span>
+          <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/xxxxxxxx/edit" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span class="field-label">工作表名稱（分頁名，留空用第一個分頁）</span>
+          <input type="text" id="sheetName" placeholder="成績" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="row-actions">
+          <button class="btn btn-primary" id="btnSaveSheet">儲存並同步</button>
+          <label class="switch">
+            <input type="checkbox" id="autoSync">
+            <span>每 60 秒自動同步</span>
+          </label>
+        </div>
+        <div class="callout" id="sheetStatus"></div>
+
+        <details class="howto">
+          <summary>怎麼設定試算表？（點開看步驟）</summary>
+          <ol class="howto-list">
+            <li>建立一份 Google 試算表，第一列填欄位名稱：
+              <code>姓名 · 組別 · 頭像 · 品質成績 · 上課表現 · 考試成績</code></li>
+            <li>下面每一列填一位學員，成績填 0–100 的數字。</li>
+            <li>右上角「共用」→ 一般存取權改成「知道連結的任何人」→ 檢視者。</li>
+            <li>把網址列的連結整段貼到上面欄位，按「儲存並同步」。</li>
+          </ol>
+          <div class="row-actions">
+            <button class="btn btn-ghost" id="btnCopyTemplate">複製範本表頭</button>
+            <button class="btn btn-ghost" id="btnLoadDemo">載入 17 人示範資料</button>
+          </div>
+        </details>
+      </div>
+
+      <div class="panel">
+        <h3 class="panel-title">⚖️ 戰力權重</h3>
+        <p class="hint">拉動滑桿，排行榜會當場重新洗牌。三項會自動維持總和 100%。</p>
+        <div class="weights" id="weights">
+          <div class="weight-row" data-key="quality">
+            <span class="weight-name"><i class="dot dot-q"></i>品質成績</span>
+            <input type="range" min="0" max="100" step="5" value="30">
+            <output>30%</output>
+          </div>
+          <div class="weight-row" data-key="performance">
+            <span class="weight-name"><i class="dot dot-p"></i>上課表現</span>
+            <input type="range" min="0" max="100" step="5" value="30">
+            <output>30%</output>
+          </div>
+          <div class="weight-row" data-key="exam">
+            <span class="weight-name"><i class="dot dot-e"></i>考試成績</span>
+            <input type="range" min="0" max="100" step="5" value="40">
+            <output>40%</output>
+          </div>
+        </div>
+        <div class="row-actions">
+          <button class="btn btn-ghost" data-preset="33,33,34">均衡</button>
+          <button class="btn btn-ghost" data-preset="30,30,40">預設</button>
+          <button class="btn btn-ghost" data-preset="20,20,60">考試導向</button>
+          <button class="btn btn-ghost" data-preset="40,40,20">過程導向</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 class="panel-title">🎛️ 顯示與班級</h3>
+        <label class="field">
+          <span class="field-label">班級名稱</span>
+          <input type="text" id="classNameInput" placeholder="訓練競技場" autocomplete="off">
+        </label>
+        <div class="toggle-list">
+          <label class="switch"><input type="checkbox" id="optAnim" checked><span>開啟換位與粒子動畫</span></label>
+          <label class="switch"><input type="checkbox" id="optSound" checked><span>頒獎典禮音效</span></label>
+          <label class="switch"><input type="checkbox" id="optBlind"><span>隱藏分數（只顯示名次）</span></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 class="panel-title">🗂️ 賽季紀錄</h3>
+        <p class="hint">每次按「存檔回合」會記錄一次名次，用來計算進退步與「進步之星」。</p>
+        <ul class="snapshot-list" id="snapshotList"></ul>
+        <div class="row-actions">
+          <button class="btn btn-ghost" id="btnExport">匯出備份 JSON</button>
+          <button class="btn btn-ghost" id="btnImport">匯入備份</button>
+          <button class="btn btn-danger" id="btnReset">清除所有本機資料</button>
+          <input type="file" id="importFile" accept=".json,application/json" hidden>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<!-- ══════════ 個人戰績卡 ══════════ -->
+<div class="drawer-scrim" id="drawerScrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="個人戰績卡">
+  <button class="drawer-close" id="drawerClose" aria-label="關閉">✕</button>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<!-- ══════════ 頒獎典禮 ══════════ -->
+<div class="ceremony" id="ceremony" hidden>
+  <div class="ceremony-stage">
+    <div class="ceremony-rank" id="cRank"></div>
+    <div class="ceremony-card" id="cCard"></div>
+    <div class="ceremony-hint" id="cHint">按 <kbd>空白鍵</kbd> 揭曉下一位 · <kbd>Esc</kbd> 離開</div>
+  </div>
+  <div class="ceremony-bar">
+    <button class="btn btn-ghost" id="cPrev">← 上一位</button>
+    <button class="btn btn-primary" id="cNext">揭曉下一位 →</button>
+    <button class="btn btn-ghost" id="cAuto">▶ 自動播放</button>
+    <button class="btn btn-ghost" id="cExit">離開</button>
+  </div>
+</div>
+
+<canvas id="fxCanvas" aria-hidden="true"></canvas>
+<div class="toast-stack" id="toasts" aria-live="polite"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     班級設定 —— 換班級時只要改這裡的試算表 ID
+     試算表必須設為「知道連結的任何人 → 檢視者」，網頁才讀得到
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  window.ARENA_CONFIG = {
+    // https://docs.google.com/spreadsheets/d/【這一段就是 ID】/edit
+    sheetId: '11JriwpqMiTgl0itBTGQfW1c086J4OcTu0yrC0JsT668',
+    sheetName: ''        // 分頁名稱；留空讀第一個分頁
+  };
+</script>
+
+<script src="js/data.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/ceremony.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
