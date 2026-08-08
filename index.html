@@ -71,7 +71,21 @@
 
   <!-- ══════════ 設定 ══════════ -->
   <section class="view" id="view-settings">
-    <div class="settings-wrap">
+
+    <!-- 設定鎖：密碼正確才展開下面的面板 -->
+    <div class="lock" id="settingsLock" hidden>
+      <form class="lock-card" id="lockForm">
+        <div class="lock-ico">🔒</div>
+        <h3>設定已鎖定</h3>
+        <p class="lock-sub">輸入密碼才能修改試算表、戰力權重與顯示選項。</p>
+        <input type="password" id="lockInput" placeholder="請輸入密碼"
+               autocomplete="current-password" spellcheck="false">
+        <button class="btn btn-primary" type="submit">解鎖</button>
+        <p class="lock-msg" id="lockMsg"></p>
+      </form>
+    </div>
+
+    <div class="settings-wrap" id="settingsWrap">
 
       <div class="panel">
         <h3 class="panel-title">📊 Google 試算表連動</h3>
@@ -147,6 +161,9 @@
           <label class="switch"><input type="checkbox" id="optSound" checked><span>頒獎典禮音效</span></label>
           <label class="switch"><input type="checkbox" id="optBlind"><span>隱藏分數（只顯示名次）</span></label>
         </div>
+        <div class="row-actions" id="relockRow" hidden>
+          <button class="btn btn-ghost" id="btnRelock">🔒 立刻重新鎖定設定</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -198,7 +215,15 @@
   window.ARENA_CONFIG = {
     // https://docs.google.com/spreadsheets/d/【這一段就是 ID】/edit
     sheetId: '11JriwpqMiTgl0itBTGQfW1c086J4OcTu0yrC0JsT668',
-    sheetName: ''        // 分頁名稱；留空讀第一個分頁
+    sheetName: '',       // 分頁名稱；留空讀第一個分頁
+
+    // 「設定」分頁的密碼，存的是 SHA-256 雜湊而不是明碼。
+    // 要換密碼：README 有算新雜湊的一行指令。設成空字串就完全不上鎖。
+    //
+    // 注意這只是「防手癢」等級的鎖：純前端網站沒有伺服器可以驗證密碼，
+    // 懂開發者工具的人可以繞過。它擋的是共用電腦上有人隨手亂點設定，
+    // 不是真正的存取控制。
+    settingsPasswordHash: '2b214c4a8d1557104833070753dbac814fd089d46c83f0597b3785f6ada8e0ed'
   };
 </script>
 
