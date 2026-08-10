@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Training Arena · 訓練競技場</title>
-<meta name="description" content="訓練課程互動排行榜：作業成績、上課表現、考試成績依配分即時排位。">
+<title>線規新人排位賽2026</title>
+<meta name="description" content="線規新人排位賽2026：練習賽、活躍度、終極考驗依配分即時排位。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -18,14 +18,14 @@
   <div class="brand">
     <span class="brand-mark">🏆</span>
     <div class="brand-text">
-      <h1 id="className">訓練競技場</h1>
+      <h1 id="className">線規新人排位賽2026</h1>
       <p class="brand-sub"><span id="seasonLabel">賽季進行中</span> · <span id="syncStatus" class="sync-idle">尚未同步</span></p>
     </div>
   </div>
 
   <nav class="tabs" role="tablist">
     <button class="tab is-active" data-view="solo" role="tab">個人榜</button>
-    <button class="tab" data-view="team" role="tab">隊伍戰</button>
+    <button class="tab" data-view="team" role="tab">公會戰</button>
     <button class="tab" data-view="settings" role="tab">設定</button>
   </nav>
 
@@ -59,11 +59,11 @@
     <p class="board-empty" id="boardEmpty" hidden>尚無資料。到「設定」貼上 Google 試算表連結後按同步。</p>
   </section>
 
-  <!-- ══════════ 隊伍戰 ══════════ -->
+  <!-- ══════════ 公會戰 ══════════ -->
   <section class="view" id="view-team">
     <div class="board-head">
-      <div class="board-title"><h2>隊伍積分戰</h2><span class="chip" id="teamCount">0 隊</span></div>
-      <p class="hint">隊伍分數 = 該組成員平均得分。在試算表的「組別」欄填上組名即可自動分組。</p>
+      <div class="board-title"><h2>公會積分戰</h2><span class="chip" id="teamCount">0 隊</span></div>
+      <p class="hint">公會分數 = 該公會成員的平均得分。在試算表的「組別」欄填上公會名即可自動分組。</p>
     </div>
     <div class="team-grid" id="teamGrid"></div>
     <p class="board-empty" id="teamEmpty" hidden>試算表中沒有「組別」欄位，或所有人都未分組。</p>
@@ -98,11 +98,11 @@
           <input type="text" id="sheetName" placeholder="成績" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">
-          <span class="field-label">加減分紀錄的分頁名（留空＝不使用，上課表現改讀總表欄位）</span>
+          <span class="field-label">加減分紀錄的分頁名（留空＝不使用，活躍度改讀總表欄位）</span>
           <input type="text" id="logSheetName" placeholder="表現紀錄" autocomplete="off" spellcheck="false">
         </label>
         <label class="field">
-          <span class="field-label">上課表現的滿分目標（整期累計加到幾分，就拿滿表現的配分）</span>
+          <span class="field-label">活躍度的滿分目標（整期累計加到幾分，就拿滿活躍度的配分）</span>
           <input type="number" id="perfTarget" min="1" step="1" placeholder="40">
         </label>
         <div class="row-actions">
@@ -143,21 +143,21 @@
 
       <div class="panel">
         <h3 class="panel-title">⚖️ 學期成績配分</h3>
-        <p class="hint">三項相加就是學期成績的滿分。作業那份由三次作業平分。拉動滑桿，排行榜會當場重新洗牌。</p>
+        <p class="hint">三項相加就是學期成績的滿分。練習賽那份由三場練習賽平分。拉動滑桿，排行榜會當場重新洗牌。</p>
         <p class="hint" id="weightSum"></p>
         <div class="weights" id="weights">
           <div class="weight-row" data-key="quality">
-            <span class="weight-name"><i class="dot dot-q"></i>作業成績</span>
+            <span class="weight-name"><i class="dot dot-q"></i>練習賽</span>
             <input type="range" min="0" max="100" step="5" value="30">
             <output>30 分</output>
           </div>
           <div class="weight-row" data-key="performance">
-            <span class="weight-name"><i class="dot dot-p"></i>上課表現</span>
+            <span class="weight-name"><i class="dot dot-p"></i>活躍度</span>
             <input type="range" min="0" max="100" step="5" value="20">
             <output>20 分</output>
           </div>
           <div class="weight-row" data-key="exam">
-            <span class="weight-name"><i class="dot dot-e"></i>考試成績</span>
+            <span class="weight-name"><i class="dot dot-e"></i>終極考驗</span>
             <input type="range" min="0" max="100" step="5" value="50">
             <output>50 分</output>
           </div>
@@ -186,7 +186,7 @@
         <h3 class="panel-title">🎛️ 顯示與班級</h3>
         <label class="field">
           <span class="field-label">班級名稱</span>
-          <input type="text" id="classNameInput" placeholder="訓練競技場" autocomplete="off">
+          <input type="text" id="classNameInput" placeholder="線規新人排位賽2026" autocomplete="off">
         </label>
         <div class="toggle-list">
           <label class="switch"><input type="checkbox" id="optAnim" checked><span>開啟換位與粒子動畫</span></label>
@@ -249,12 +249,12 @@
     sheetId: '11JriwpqMiTgl0itBTGQfW1c086J4OcTu0yrC0JsT668',
     sheetName: '',       // 學員總表的分頁名稱；留空讀第一個分頁
 
-    // 加減分流水帳的分頁名稱；留空就不讀，上課表現改用總表的欄位
+    // 加減分流水帳的分頁名稱；留空就不讀，活躍度改用總表的欄位
     logSheetName: '表現紀錄',
-    // 上課表現的「整期滿分目標」：累計加到這個分數，就拿滿表現那一項的配分
+    // 活躍度的「整期滿分目標」：累計加到這個分數，就拿滿表現那一項的配分
     perfTarget: 40,
 
-    // 各項配分，相加＝學期成績滿分。作業那份由三次作業平分。
+    // 各項配分，相加＝學期成績滿分。練習賽那份由三場練習賽平分。
     weights: { quality: 30, performance: 20, exam: 50 },
 
     // 「設定」分頁的密碼，存的是 SHA-256 雜湊而不是明碼。

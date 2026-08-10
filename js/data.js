@@ -11,11 +11,11 @@ const Store = (() => {
   const BUILT_IN = window.ARENA_CONFIG || {};
 
   const DEFAULTS = {
-    className: '訓練競技場',
+    className: '線規新人排位賽2026',
     sheetId: BUILT_IN.sheetId || '',
     sheetName: BUILT_IN.sheetName || '',
     logSheetName: BUILT_IN.logSheetName || '',   // 加減分流水帳的分頁名；留空就不讀
-    perfTarget: BUILT_IN.perfTarget || 40,        // 上課表現的「整期滿分目標」加分數
+    perfTarget: BUILT_IN.perfTarget || 40,        // 活躍度的「整期滿分目標」加分數
     autoSync: false,
     // 配分：三項相加＝學期成績滿分。作業那 30 分由三份作業平分。
     weights: { ...{ quality: 30, performance: 20, exam: 50 }, ...(BUILT_IN.weights || {}) },
@@ -168,9 +168,9 @@ const Scoring = (() => {
     rows.forEach(r => {
       const b = [];
       if (r.rank === 1 && prev && prev.champion === r.id) b.push({ icon: '🔥', name: '連霸', desc: '連續兩回合排名第一' });
-      if (r.quality === topQ && topQ > 0)     b.push({ icon: '✨', name: '作業達人', desc: '全班作業成績最高' });
-      if (r.performance === topP && topP > 0) b.push({ icon: '🙋', name: '課堂之星', desc: '全班上課表現最高' });
-      if (r.exam === topE && topE > 0)        b.push({ icon: '🎯', name: '考神',     desc: '全班考試成績最高' });
+      if (r.quality === topQ && topQ > 0)     b.push({ icon: '✨', name: '作業達人', desc: '全班練習賽成績最高' });
+      if (r.performance === topP && topP > 0) b.push({ icon: '🙋', name: '課堂之星', desc: '全班活躍度最高' });
+      if (r.exam === topE && topE > 0)        b.push({ icon: '🎯', name: '考神',     desc: '全班終極考驗最高' });
       if (starGain > 0 && r.delta === starGain) b.push({ icon: '🚀', name: '進步之星', desc: `名次進步 ${starGain} 名，全班最多` });
       if ([r.quality, r.performance, r.exam].some(v => v >= 100)) b.push({ icon: '💯', name: '滿分王', desc: '單項拿到滿分' });
       if (Math.max(r.quality, r.performance, r.exam) - Math.min(r.quality, r.performance, r.exam) <= 5)
@@ -180,7 +180,7 @@ const Scoring = (() => {
     });
   }
 
-  /** 隊伍積分 = 組內平均戰力 */
+  /** 公會積分 = 公會內平均戰力 */
   function buildTeams(rows) {
     const map = new Map();
     rows.forEach(r => {
@@ -260,14 +260,14 @@ const Sheet = (() => {
   const ALIASES = {
     seat:        ['座號', '座位', '號次', '學號', '編號', 'seat'],
     name:        ['姓名', '學員', '學員姓名', '名字', 'name', 'student'],
-    team:        ['組別', '隊伍', '小組', '組', 'team', 'group'],
+    team:        ['組別', '公會', '隊伍', '小組', '組', 'team', 'group'],
     avatar:      ['頭像', '圖示', 'avatar', 'emoji', 'icon'],
-    hw1:         ['作業1', '作業一', 'hw1'],
-    hw2:         ['作業2', '作業二', 'hw2'],
-    hw3:         ['作業3', '作業三', 'hw3'],
+    hw1:         ['作業1', '作業一', '練習賽1', 'hw1'],
+    hw2:         ['作業2', '作業二', '練習賽2', 'hw2'],
+    hw3:         ['作業3', '作業三', '練習賽3', 'hw3'],
     quality:     ['作業', '品質', 'quality'],   // 沒有作業1~3 時才會用到的單欄舊格式
-    performance: ['表現', '上課', 'performance', 'class'],
-    exam:        ['考試', '測驗', 'exam', 'test', 'score']
+    performance: ['表現', '上課', '活躍', 'performance', 'class'],
+    exam:        ['考試', '測驗', '終極', 'exam', 'test', 'score']
   };
 
   /** 「表現紀錄」分頁（一列一筆加減分）的欄位別名 */
@@ -298,7 +298,7 @@ const Sheet = (() => {
     return Math.max(0, Math.min(100, n));
   }
 
-  const HW_LABELS = ['作業1', '作業2', '作業3'];
+  const HW_LABELS = ['練習賽1', '練習賽2', '練習賽3'];
 
   /** 取座號的比對鍵：「01」「1」「1號」都收斂成 "1"；不是數字就回空字串 */
   function seatKey(v) {

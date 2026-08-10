@@ -23,7 +23,7 @@
     UI.renderTeams(Scoring.buildTeams(rows));
     UI.renderSnapshots();
 
-    $('#className').textContent = st.className || '訓練競技場';
+    $('#className').textContent = st.className || '線規新人排位賽2026';
     $('#seasonLabel').textContent = st.history.length
       ? `第 ${st.history.length} 回合已存檔`
       : '賽季進行中';
@@ -40,7 +40,7 @@
       a.name.localeCompare(b.name, 'zh-Hant'));
 
     el.innerHTML = `
-      <thead><tr><th>座號</th><th>姓名</th><th>作業</th><th>表現</th><th>考試</th><th>學期成績</th></tr></thead>
+      <thead><tr><th>座號</th><th>姓名</th><th>練習賽</th><th>活躍度</th><th>終極考驗</th><th>學期成績</th></tr></thead>
       <tbody>${list.map(r => `
         <tr>
           <td>${esc(r.seat || '')}</td>
@@ -63,9 +63,9 @@
 
   function renderWeightMini() {
     $('#weightMini').innerHTML = `
-      <span><i class="dot dot-q"></i>作業</span>
-      <span><i class="dot dot-p"></i>表現</span>
-      <span><i class="dot dot-e"></i>考試</span>`;
+      <span><i class="dot dot-q"></i>練習賽</span>
+      <span><i class="dot dot-p"></i>活躍度</span>
+      <span><i class="dot dot-e"></i>終極考驗</span>`;
   }
 
   /* ── 同步試算表 ───────────────────────────────────── */
@@ -98,7 +98,7 @@
         } catch (e) {
           console.warn('[sync] 表現紀錄', e);
           note = `<br>⚠️ 讀不到「${esc(st.logSheetName)}」分頁（${esc(e.message)}）；`
-               + `上課表現這次改用總表的欄位，加減分沒有計入。`;
+               + `活躍度這次改用總表的欄位，加減分沒有計入。`;
         }
       }
 
@@ -384,7 +384,7 @@
 
     $('#classNameInput').addEventListener('input', e => {
       Store.set({ className: e.target.value });
-      $('#className').textContent = e.target.value || '訓練競技場';
+      $('#className').textContent = e.target.value || '線規新人排位賽2026';
     });
 
     $('#optAnim').addEventListener('change', e => {

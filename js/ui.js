@@ -1,5 +1,5 @@
 /* ============================================================
-   ui.js — 排行榜、頒獎台、隊伍戰、個人戰績卡的畫面渲染
+   ui.js — 排行榜、頒獎台、公會戰、個人戰績卡的畫面渲染
    ============================================================ */
 
 const UI = (() => {
@@ -154,13 +154,13 @@ const UI = (() => {
     });
   }
 
-  /* ── 隊伍戰 ───────────────────────────────────────── */
+  /* ── 公會戰 ───────────────────────────────────────── */
 
   function renderTeams(teams) {
     const grid = $('#teamGrid');
     const empty = $('#teamEmpty');
 
-    $('#teamCount').textContent = `${teams.length} 隊`;
+    $('#teamCount').textContent = `${teams.length} 個公會`;
     empty.hidden = teams.length > 0;
 
     if (!teams.length) { grid.innerHTML = ''; return; }
@@ -246,11 +246,11 @@ const UI = (() => {
       <div class="pc-section">
         <h4>三項成績</h4>
         <div class="pc-dims">
-          ${dimRow('作業成績', 'q', r.quality)}
+          ${dimRow('練習賽', 'q', r.quality)}
           ${hwDetailHTML(r)}
-          ${dimRow('上課表現', 'p', r.performance)}
+          ${dimRow('活躍度', 'p', r.performance)}
           ${perfNoteHTML(r)}
-          ${dimRow('考試成績', 'e', r.exam)}
+          ${dimRow('終極考驗', 'e', r.exam)}
         </div>
       </div>
 
@@ -271,7 +271,7 @@ const UI = (() => {
       </div>`;
   }
 
-  /** 三份作業各自幾分；留白的顯示「未評」，代表它還沒被加進累積總分 */
+  /** 三場練習賽各自幾分；留白的顯示「未評」，代表它還沒被加進累積總分 */
   function hwDetailHTML(r) {
     if (!r.assignments || !r.assignments.length) return '';
     const items = r.assignments.map(a =>
@@ -280,7 +280,7 @@ const UI = (() => {
     return `<div class="pc-subrow">${items}</div>`;
   }
 
-  /** 表現分數的來源：累計了幾分、離滿分目標還有多遠 */
+  /** 活躍度的來源：累計了幾分、離滿分目標還有多遠 */
   function perfNoteHTML(r) {
     if (!r.perfLog) return '';
     const goal = Store.state.perfTarget || 40;
@@ -322,9 +322,9 @@ const UI = (() => {
     if (!svg) return;
     const cx = 120, cy = 112, R = 82;
     const axes = [
-      { label: '作業', value: r.quality,     color: 'var(--q)' },
-      { label: '表現', value: r.performance, color: 'var(--p)' },
-      { label: '考試', value: r.exam,        color: 'var(--e)' }
+      { label: '練習賽', value: r.quality,     color: 'var(--q)' },
+      { label: '活躍度', value: r.performance, color: 'var(--p)' },
+      { label: '終極考驗', value: r.exam,        color: 'var(--e)' }
     ];
 
     const pt = (i, ratio) => {
