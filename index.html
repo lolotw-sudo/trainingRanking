@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Training Arena · 訓練競技場</title>
-<meta name="description" content="訓練課程互動排行榜：品質成績、上課表現、考試成績三維戰力即時排位。">
+<meta name="description" content="訓練課程互動排行榜：作業成績、上課表現、考試成績依配分即時排位。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -63,7 +63,7 @@
   <section class="view" id="view-team">
     <div class="board-head">
       <div class="board-title"><h2>隊伍積分戰</h2><span class="chip" id="teamCount">0 隊</span></div>
-      <p class="hint">隊伍分數 = 該組成員平均戰力。在試算表的「組別」欄填上組名即可自動分組。</p>
+      <p class="hint">隊伍分數 = 該組成員平均得分。在試算表的「組別」欄填上組名即可自動分組。</p>
     </div>
     <div class="team-grid" id="teamGrid"></div>
     <p class="board-empty" id="teamEmpty" hidden>試算表中沒有「組別」欄位，或所有人都未分組。</p>
@@ -77,7 +77,7 @@
       <form class="lock-card" id="lockForm">
         <div class="lock-ico">🔒</div>
         <h3>設定已鎖定</h3>
-        <p class="lock-sub">輸入密碼才能修改試算表、戰力權重與顯示選項。</p>
+        <p class="lock-sub">輸入密碼才能修改試算表、成績配分與顯示選項。</p>
         <input type="password" id="lockInput" placeholder="請輸入密碼"
                autocomplete="current-password" spellcheck="false">
         <button class="btn btn-primary" type="submit">解鎖</button>
@@ -97,6 +97,14 @@
           <span class="field-label">工作表名稱（分頁名，留空用第一個分頁）</span>
           <input type="text" id="sheetName" placeholder="成績" autocomplete="off" spellcheck="false">
         </label>
+        <label class="field">
+          <span class="field-label">加減分紀錄的分頁名（留空＝不使用，上課表現改讀總表欄位）</span>
+          <input type="text" id="logSheetName" placeholder="表現紀錄" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span class="field-label">上課表現的滿分目標（整期累計加到幾分，就拿滿表現的配分）</span>
+          <input type="number" id="perfTarget" min="1" step="1" placeholder="40">
+        </label>
         <div class="row-actions">
           <button class="btn btn-primary" id="btnSaveSheet">儲存並同步</button>
           <label class="switch">
@@ -109,44 +117,68 @@
         <details class="howto">
           <summary>怎麼設定試算表？（點開看步驟）</summary>
           <ol class="howto-list">
-            <li>建立一份 Google 試算表，第一列填欄位名稱：
-              <code>姓名 · 組別 · 頭像 · 品質成績 · 上課表現 · 考試成績</code></li>
-            <li>下面每一列填一位學員，成績填 0–100 的數字。</li>
+            <li><b>第一個分頁（學員總表）</b>第一列填欄位名稱：
+              <code>座號 · 姓名 · 組別 · 頭像 · 作業1 · 作業2 · 作業3 · 考試成績</code><br>
+              下面每一列填一位學員，成績填 0–100。<b>還沒評的作業留白</b>（不列入平均），
+              <b>漏交要填 0</b>——兩者意義不同。</li>
+            <li><b>第二個分頁（表現紀錄）</b>記加減分流水帳，第一列填：
+              <code>日期 · 堂次 · 學員 · 加減分 · 事由 · 老師</code><br>
+              上完一堂課就在最底下補幾列，一位學員一列，同一堂課同一人可以記多列。</li>
+            <li><b>把「學員」欄設成下拉選單</b>（強烈建議，不會打錯字）：
+              在總表最右邊加一欄 <code>選單</code>，第二列填
+              <code>=ARRAYFORMULA(IF(B2:B="","",TEXT(A2:A,"00")&amp;" "&amp;B2:B))</code>
+              會自動生出「01 黃相奎」；再到表現紀錄的「學員」欄設
+              資料 → 資料驗證 → 從範圍選取，指向這一欄。<br>
+              帶座號的寫法系統認得，<b>只填座號或只填姓名也都認得</b>。</li>
             <li>右上角「共用」→ 一般存取權改成「知道連結的任何人」→ 檢視者。</li>
             <li>把網址列的連結整段貼到上面欄位，按「儲存並同步」。</li>
           </ol>
           <div class="row-actions">
-            <button class="btn btn-ghost" id="btnCopyTemplate">複製範本表頭</button>
+            <button class="btn btn-ghost" id="btnCopyTemplate">複製總表表頭</button>
+            <button class="btn btn-ghost" id="btnCopyLogTemplate">複製表現紀錄表頭</button>
             <button class="btn btn-ghost" id="btnLoadDemo">載入 17 人示範資料</button>
           </div>
         </details>
       </div>
 
       <div class="panel">
-        <h3 class="panel-title">⚖️ 戰力權重</h3>
-        <p class="hint">拉動滑桿，排行榜會當場重新洗牌。三項會自動維持總和 100%。</p>
+        <h3 class="panel-title">⚖️ 學期成績配分</h3>
+        <p class="hint">三項相加就是學期成績的滿分。作業那份由三次作業平分。拉動滑桿，排行榜會當場重新洗牌。</p>
+        <p class="hint" id="weightSum"></p>
         <div class="weights" id="weights">
           <div class="weight-row" data-key="quality">
-            <span class="weight-name"><i class="dot dot-q"></i>品質成績</span>
+            <span class="weight-name"><i class="dot dot-q"></i>作業成績</span>
             <input type="range" min="0" max="100" step="5" value="30">
-            <output>30%</output>
+            <output>30 分</output>
           </div>
           <div class="weight-row" data-key="performance">
             <span class="weight-name"><i class="dot dot-p"></i>上課表現</span>
-            <input type="range" min="0" max="100" step="5" value="30">
-            <output>30%</output>
+            <input type="range" min="0" max="100" step="5" value="20">
+            <output>20 分</output>
           </div>
           <div class="weight-row" data-key="exam">
             <span class="weight-name"><i class="dot dot-e"></i>考試成績</span>
-            <input type="range" min="0" max="100" step="5" value="40">
-            <output>40%</output>
+            <input type="range" min="0" max="100" step="5" value="50">
+            <output>50 分</output>
           </div>
         </div>
         <div class="row-actions">
-          <button class="btn btn-ghost" data-preset="33,33,34">均衡</button>
-          <button class="btn btn-ghost" data-preset="30,30,40">預設</button>
+          <button class="btn btn-ghost" data-preset="30,20,50">預設</button>
+          <button class="btn btn-ghost" data-preset="35,30,35">均衡</button>
           <button class="btn btn-ghost" data-preset="20,20,60">考試導向</button>
-          <button class="btn btn-ghost" data-preset="40,40,20">過程導向</button>
+          <button class="btn btn-ghost" data-preset="40,30,30">過程導向</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3 class="panel-title">📋 學期成績（滿分 100）</h3>
+        <p class="hint">
+          依上面的配分加權算出來的 0–100 分，就是要輸入學習系統的數字。
+          跟排行榜的累積總分是兩套數字：這裡看比重，排行榜看累積量。<b>學生看不到這一頁。</b>
+        </p>
+        <div class="grade-wrap"><table class="grade-table" id="gradeTable"></table></div>
+        <div class="row-actions">
+          <button class="btn btn-ghost" id="btnCopyGrades">複製成績清單</button>
         </div>
       </div>
 
@@ -215,7 +247,15 @@
   window.ARENA_CONFIG = {
     // https://docs.google.com/spreadsheets/d/【這一段就是 ID】/edit
     sheetId: '11JriwpqMiTgl0itBTGQfW1c086J4OcTu0yrC0JsT668',
-    sheetName: '',       // 分頁名稱；留空讀第一個分頁
+    sheetName: '',       // 學員總表的分頁名稱；留空讀第一個分頁
+
+    // 加減分流水帳的分頁名稱；留空就不讀，上課表現改用總表的欄位
+    logSheetName: '表現紀錄',
+    // 上課表現的「整期滿分目標」：累計加到這個分數，就拿滿表現那一項的配分
+    perfTarget: 40,
+
+    // 各項配分，相加＝學期成績滿分。作業那份由三次作業平分。
+    weights: { quality: 30, performance: 20, exam: 50 },
 
     // 「設定」分頁的密碼，存的是 SHA-256 雜湊而不是明碼。
     // 要換密碼：README 有算新雜湊的一行指令。設成空字串就完全不上鎖。

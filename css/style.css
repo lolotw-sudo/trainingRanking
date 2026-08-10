@@ -20,7 +20,7 @@
   --magenta:       #e879f9;
   --lime:          #a3e635;
 
-  --q:             #38bdf8;   /* 品質 */
+  --q:             #38bdf8;   /* 作業 */
   --p:             #34d399;   /* 表現 */
   --e:             #fb923c;   /* 考試 */
 
@@ -648,6 +648,45 @@ main {
 .pc-dim { display: grid; grid-template-columns: 68px 1fr 38px; align-items: center; gap: 10px; font-size: 12px; }
 .pc-dim .bar-track { height: 8px; }
 .pc-dim b { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+
+/* 分數底下的明細小標：三份作業、累計加分 */
+.pc-subrow { display: flex; flex-wrap: wrap; gap: 6px; margin: -3px 0 3px 78px; }
+.pc-chip {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--stroke-strong);
+  color: var(--text-dim);
+}
+.pc-chip b { font-variant-numeric: tabular-nums; color: var(--text); }
+.pc-chip.is-empty { opacity: .55; }
+
+/* 加分明細時間軸 */
+.pc-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.pc-log li {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 10px;
+  padding: 7px 10px; border-radius: 9px; background: rgba(255,255,255,.035);
+}
+.log-when { grid-column: 1; font-size: 10.5px; color: var(--text-faint); }
+.log-what { grid-column: 1; font-size: 12px; }
+.log-what i { font-style: normal; color: var(--text-faint); font-size: 10.5px; margin-left: 6px; }
+.log-delta {
+  grid-column: 2; grid-row: 1 / span 2; align-self: center;
+  font-size: 14px; font-variant-numeric: tabular-nums; color: var(--p);
+}
+.log-delta.is-minus { color: var(--danger, #f87171); }
+.pc-count { font-size: 11px; color: var(--text-faint); font-weight: 400; }
+
+/* 學期成績清單（設定頁） */
+.grade-wrap { overflow-x: auto; margin-bottom: 12px; }
+.grade-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.grade-table th, .grade-table td { padding: 7px 10px; text-align: right; white-space: nowrap; }
+.grade-table th:nth-child(-n+2), .grade-table td:nth-child(-n+2) { text-align: left; }
+.grade-table th {
+  font-size: 11px; color: var(--text-dim); font-weight: 600;
+  border-bottom: 1px solid var(--stroke-strong);
+}
+.grade-table tbody tr:nth-child(even) { background: rgba(255,255,255,.03); }
+.grade-table td { font-variant-numeric: tabular-nums; color: var(--text-dim); }
+.grade-table .grade-cell { color: var(--text); font-weight: 700; font-size: 13.5px; }
 
 .pc-badges { display: flex; flex-wrap: wrap; gap: 7px; }
 .pc-badge {

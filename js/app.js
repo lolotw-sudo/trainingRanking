@@ -6,6 +6,8 @@
   const $  = UI.$;
   const $$ = UI.$$;
   const S  = () => Store.state;
+  const esc = s => String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   let rows = [];
   let autoTimer = null;
@@ -26,14 +28,44 @@
       ? `第 ${st.history.length} 回合已存檔`
       : '賽季進行中';
     renderWeightMini();
+    renderGrades();
+  }
+
+  /** 學期成績清單：期末要輸入學習系統的 0–100 分，只在設定頁出現 */
+  function renderGrades() {
+    const el = $('#gradeTable');
+    if (!el) return;
+    const list = [...rows].sort((a, b) =>
+      (a.seat || '').localeCompare(b.seat || '', 'zh-Hant', { numeric: true }) ||
+      a.name.localeCompare(b.name, 'zh-Hant'));
+
+    el.innerHTML = `
+      <thead><tr><th>座號</th><th>姓名</th><th>作業</th><th>表現</th><th>考試</th><th>學期成績</th></tr></thead>
+      <tbody>${list.map(r => `
+        <tr>
+          <td>${esc(r.seat || '')}</td>
+          <td>${esc(r.name)}</td>
+          <td>${r.quality}</td>
+          <td>${r.performance}</td>
+          <td>${r.exam}</td>
+          <td class="grade-cell">${r.grade.toFixed(1)}</td>
+        </tr>`).join('')}</tbody>`;
+  }
+
+  /** 複製成 TSV，可直接貼進試算表或學習系統 */
+  function gradesTSV() {
+    const list = [...rows].sort((a, b) =>
+      (a.seat || '').localeCompare(b.seat || '', 'zh-Hant', { numeric: true }) ||
+      a.name.localeCompare(b.name, 'zh-Hant'));
+    return ['座號\t姓名\t學期成績',
+      ...list.map(r => `${r.seat || ''}\t${r.name}\t${r.grade.toFixed(1)}`)].join('\n');
   }
 
   function renderWeightMini() {
-    const n = Scoring.normalizedWeights(S().weights);
     $('#weightMini').innerHTML = `
-      <span><i class="dot dot-q"></i>品質 ${Math.round(n.quality * 100)}%</span>
-      <span><i class="dot dot-p"></i>表現 ${Math.round(n.performance * 100)}%</span>
-      <span><i class="dot dot-e"></i>考試 ${Math.round(n.exam * 100)}%</span>`;
+      <span><i class="dot dot-q"></i>作業</span>
+      <span><i class="dot dot-p"></i>表現</span>
+      <span><i class="dot dot-e"></i>考試</span>`;
   }
 
   /* ── 同步試算表 ───────────────────────────────────── */
@@ -53,10 +85,27 @@
 
     try {
       const students = await Sheet.fetchStudents(st.sheetId, st.sheetName);
+
+      // 表現紀錄是選配的第二個分頁：讀不到只降級成「表現 0 分」，不讓整次同步失敗
+      let note = '';
+      if (st.logSheetName) {
+        try {
+          const log = await Sheet.fetchPerfLog(st.sheetId, st.logSheetName);
+          const { matched, unmatched } = Sheet.applyPerfLog(students, log, st.perfTarget);
+          note = `<br>📋 表現紀錄 ${matched} 筆已計入（滿分目標 ${st.perfTarget} 分）。`;
+          if (unmatched.length)
+            note += `<br>⚠️ 有 ${unmatched.length} 個名字對不到學員，這些分數<b>沒有被計算</b>：${unmatched.map(esc).join('、')}`;
+        } catch (e) {
+          console.warn('[sync] 表現紀錄', e);
+          note = `<br>⚠️ 讀不到「${esc(st.logSheetName)}」分頁（${esc(e.message)}）；`
+               + `上課表現這次改用總表的欄位，加減分沒有計入。`;
+        }
+      }
+
       Store.set({ students, lastSync: Date.now() });
       refresh();
       setSyncStatus(`已同步 ${timeStr(Date.now())}`, 'sync-ok');
-      setSheetStatus(`✅ 讀到 ${students.length} 位學員。`, 'ok');
+      setSheetStatus(`✅ 讀到 ${students.length} 位學員。${note}`, note.includes('⚠️') ? '' : 'ok');
       if (!silent) FX.toast(`已從試算表讀入 ${students.length} 位學員`, 'ok');
     } catch (err) {
       console.error('[sync]', err);
@@ -197,12 +246,18 @@
   }
 
   function updateWeightOutputs() {
-    const n = Scoring.normalizedWeights(S().weights);
+    const w = S().weights;
     $$('.weight-row').forEach(row => {
       const key = row.dataset.key;
-      row.querySelector('input').value = S().weights[key];
-      row.querySelector('output').textContent = Math.round(n[key] * 100) + '%';
+      row.querySelector('input').value = w[key];
+      row.querySelector('output').textContent = w[key] + ' 分';
     });
+    const sum = w.quality + w.performance + w.exam;
+    const el = $('#weightSum');
+    if (el) {
+      el.textContent = `滿分合計 ${sum} 分`;
+      el.className = sum === 100 ? 'hint ok' : 'hint warn';
+    }
   }
 
   function applyPreset(str) {
@@ -248,6 +303,8 @@
     const st = S();
     $('#sheetUrl').value = st.sheetId;
     $('#sheetName').value = st.sheetName;
+    $('#logSheetName').value = st.logSheetName;
+    $('#perfTarget').value = st.perfTarget;
     $('#classNameInput').value = st.className;
     $('#autoSync').checked = st.autoSync;
     $('#optAnim').checked = st.options.anim;
@@ -272,8 +329,15 @@
     $('#btnSaveSheet').addEventListener('click', () => {
       const id = Sheet.parseId($('#sheetUrl').value);
       if (!id) { setSheetStatus('❌ 這不像是 Google 試算表連結，請貼上瀏覽器網址列的完整連結。', 'err'); return; }
-      Store.set({ sheetId: id, sheetName: $('#sheetName').value.trim() });
+      const target = parseFloat($('#perfTarget').value);
+      Store.set({
+        sheetId: id,
+        sheetName: $('#sheetName').value.trim(),
+        logSheetName: $('#logSheetName').value.trim(),
+        perfTarget: isFinite(target) && target > 0 ? target : 50
+      });
       $('#sheetUrl').value = id;
+      $('#perfTarget').value = S().perfTarget;
       sync();
     });
 
@@ -289,6 +353,25 @@
         FX.toast('表頭已複製，貼到試算表第一列即可', 'ok');
       } catch {
         setSheetStatus(`手動複製這一列到試算表第一列：<br><code>${Sheet.TEMPLATE_HEADER.replace(/\t/g, ' | ')}</code>`);
+      }
+    });
+
+    $('#btnCopyLogTemplate').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(Sheet.LOG_TEMPLATE_HEADER);
+        FX.toast('表頭已複製，貼到「表現紀錄」分頁第一列', 'ok');
+      } catch {
+        setSheetStatus(`手動複製這一列到「表現紀錄」分頁第一列：<br><code>${Sheet.LOG_TEMPLATE_HEADER.replace(/\t/g, ' | ')}</code>`);
+      }
+    });
+
+    $('#btnCopyGrades').addEventListener('click', async () => {
+      if (!rows.length) { FX.toast('還沒有學員資料', 'err'); return; }
+      try {
+        await navigator.clipboard.writeText(gradesTSV());
+        FX.toast(`已複製 ${rows.length} 位學員的成績，可直接貼上`, 'ok');
+      } catch {
+        FX.toast('瀏覽器不允許複製，請直接從表格選取', 'err');
       }
     });
 

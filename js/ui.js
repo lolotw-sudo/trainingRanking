@@ -69,7 +69,7 @@ const UI = (() => {
       </div>
       <div class="total-cell">
         <div class="total-num">0</div>
-        <div class="total-label">戰力</div>
+        <div class="total-label">積分</div>
       </div>
       <div class="delta-cell"></div>`;
 
@@ -233,7 +233,7 @@ const UI = (() => {
 
       <div class="pc-hero">
         <div class="pc-stat"><b>#${r.rank}</b><span>目前名次</span></div>
-        <div class="pc-stat"><b>${r.total.toFixed(1)}</b><span>總戰力</span></div>
+        <div class="pc-stat"><b>${r.total.toFixed(1)}</b><span>累積總分</span></div>
         <div class="pc-stat"><b>#${bestRank}</b><span>生涯最佳</span></div>
         <div class="pc-stat"><b>${r.prevRank == null ? '—' : (r.delta > 0 ? '▲' + r.delta : r.delta < 0 ? '▼' + -r.delta : '持平')}</b><span>本回合變化</span></div>
       </div>
@@ -244,13 +244,17 @@ const UI = (() => {
       </div>
 
       <div class="pc-section">
-        <h4>三維成績</h4>
+        <h4>三項成績</h4>
         <div class="pc-dims">
-          ${dimRow('品質成績', 'q', r.quality)}
+          ${dimRow('作業成績', 'q', r.quality)}
+          ${hwDetailHTML(r)}
           ${dimRow('上課表現', 'p', r.performance)}
+          ${perfNoteHTML(r)}
           ${dimRow('考試成績', 'e', r.exam)}
         </div>
       </div>
+
+      ${perfLogHTML(r)}
 
       <div class="pc-section">
         <h4>名次走勢</h4>
@@ -264,6 +268,42 @@ const UI = (() => {
         <div class="pc-badges">
           ${r.badges.map(b => `<span class="pc-badge">${b.icon} ${esc(b.name)}</span>`).join('')}
         </div>
+      </div>`;
+  }
+
+  /** 三份作業各自幾分；留白的顯示「未評」，代表它還沒被加進累積總分 */
+  function hwDetailHTML(r) {
+    if (!r.assignments || !r.assignments.length) return '';
+    const items = r.assignments.map(a =>
+      `<span class="pc-chip${a.score === null ? ' is-empty' : ''}">${esc(a.label)} <b>${a.score === null ? '未評' : a.score}</b></span>`
+    ).join('');
+    return `<div class="pc-subrow">${items}</div>`;
+  }
+
+  /** 表現分數的來源：累計了幾分、離滿分目標還有多遠 */
+  function perfNoteHTML(r) {
+    if (!r.perfLog) return '';
+    const goal = Store.state.perfTarget || 40;
+    const raw  = r.perfRaw || 0;
+    return `<div class="pc-subrow">
+      <span class="pc-chip">累計 <b>${raw > 0 ? '+' + raw : raw}</b> 分</span>
+      <span class="pc-chip is-empty">滿分目標 ${goal} 分</span>
+    </div>`;
+  }
+
+  /** 加分明細時間軸——排行榜的說服力來源：分數是怎麼來的 */
+  function perfLogHTML(r) {
+    if (!r.perfLog || !r.perfLog.length) return '';
+    const items = [...r.perfLog].reverse().map(e => `
+      <li>
+        <span class="log-when">${esc(e.date || '')}${e.item ? ' · ' + esc(e.item) : ''}</span>
+        <span class="log-what">${esc(e.reason || '加分')}${e.teacher ? `<i>${esc(e.teacher)}</i>` : ''}</span>
+        <b class="log-delta${e.delta < 0 ? ' is-minus' : ''}">${e.delta > 0 ? '+' + e.delta : e.delta}</b>
+      </li>`).join('');
+    return `
+      <div class="pc-section">
+        <h4>加分明細 <span class="pc-count">${r.perfLog.length} 筆</span></h4>
+        <ul class="pc-log">${items}</ul>
       </div>`;
   }
 
@@ -282,7 +322,7 @@ const UI = (() => {
     if (!svg) return;
     const cx = 120, cy = 112, R = 82;
     const axes = [
-      { label: '品質', value: r.quality,     color: 'var(--q)' },
+      { label: '作業', value: r.quality,     color: 'var(--q)' },
       { label: '表現', value: r.performance, color: 'var(--p)' },
       { label: '考試', value: r.exam,        color: 'var(--e)' }
     ];
