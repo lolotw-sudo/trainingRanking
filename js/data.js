@@ -168,7 +168,7 @@ const Scoring = (() => {
     rows.forEach(r => {
       const b = [];
       if (r.rank === 1 && prev && prev.champion === r.id) b.push({ icon: '🔥', name: '連霸', desc: '連續兩回合排名第一' });
-      if (r.quality === topQ && topQ > 0)     b.push({ icon: '✨', name: '作業達人', desc: '全班練習賽成績最高' });
+      if (r.quality === topQ && topQ > 0)     b.push({ icon: '✨', name: '練習賽達人', desc: '全班練習賽成績最高' });
       if (r.performance === topP && topP > 0) b.push({ icon: '🙋', name: '課堂之星', desc: '全班活躍度最高' });
       if (r.exam === topE && topE > 0)        b.push({ icon: '🎯', name: '考神',     desc: '全班終極考驗最高' });
       if (starGain > 0 && r.delta === starGain) b.push({ icon: '🚀', name: '進步之星', desc: `名次進步 ${starGain} 名，全班最多` });
