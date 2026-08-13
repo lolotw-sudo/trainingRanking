@@ -38,6 +38,11 @@ const CONFIG = {
   PERF_ITEM: '刷題練習',
   PERF_TEACHER: '系統',
   TZ: 'Asia/Taipei',
+
+  // 老師的測試帳號：不用在學員名單裡，交卷會照常對答案，
+  // 但兩張紀錄表都不寫（所以不佔次數、不加分、不污染成績）。
+  // 要跟前端 js/quiz.js 的 TEST_USER.name 完全一致。
+  TEST_USER: 'LOLO老師',
 };
 
 const LOG_HEADER  = ['時間', '日期', '座號', '姓名', '科目', '得分', '答對', '題數', '用時(秒)', '今日第幾次', '回合編號'];
@@ -165,6 +170,15 @@ function submitRound(body) {
         remaining: Math.max(0, CONFIG.DAILY_LIMIT - used),
         pointsEarned: CONFIG.POINTS_PER_PRACTICE,
         alreadyRecorded: true,
+      };
+    }
+
+    // 測試帳號到此為止：分數算給老師看，但兩張表都不寫，所以不佔次數也不加分
+    if (isTestUser(name)) {
+      return {
+        ok: true, name, score, correct, total, detail,
+        used: 0, limit: CONFIG.DAILY_LIMIT, remaining: CONFIG.DAILY_LIMIT,
+        pointsEarned: 0, test: true,
       };
     }
 
@@ -313,7 +327,8 @@ function readRosterRaw() {
                .filter(Boolean);
 }
 
-const inRoster = name => readRoster().indexOf(name.trim()) >= 0;
+const isTestUser = name => String(name || '').trim() === CONFIG.TEST_USER;
+const inRoster = name => isTestUser(name) || readRoster().indexOf(name.trim()) >= 0;
 
 /** 這個回合編號記過了嗎？回傳當時是「今日第幾次」，沒記過回 0 */
 function roundOf(roundId) {
@@ -341,6 +356,7 @@ function roundOf(roundId) {
  * 但只讀「日期」與「姓名」兩欄，不整張表撈。
  */
 function usedToday(name) {
+  if (isTestUser(name)) return 0;      // 測試帳號不留紀錄，永遠是 0 次
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.LOG_TAB);
   if (!sh) return 0;
 

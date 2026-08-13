@@ -21,11 +21,21 @@ const Quiz = (() => {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const USER_KEY = 'trainingArena.quizUser';
+  const LAST_KEY = 'trainingArena.quizLast';   // 最後一次成績，重整也還在
   const cfg = () => window.ARENA_CONFIG || {};
   const api = () => (cfg().quizApi || '').trim();
 
   const PER_ROUND   = 10;   // 每回合幾題
   const DAILY_LIMIT = 3;    // 一天幾次（後端才是真正的閘門，這裡只是畫面用）
+
+  /**
+   * 老師的測試帳號。不在學員名單裡，所以不佔排名、不影響任何人的成績；
+   * 後端認得這個名字，交卷時對答案照做，但兩張紀錄表都不寫 ——
+   * 因此也沒有「今天用了幾次」，可以一直測。
+   * 名字要跟後端 CONFIG.TEST_USER 完全一致。
+   */
+  const TEST_USER = { name: 'LOLO老師', seat: '', avatar: '🧑‍🏫' };
+  const isTest = n => String(n || '').trim() === TEST_USER.name;
 
   /* ── 讀：走 gviz，跟同步學員名單同一條路 ───────────── */
 
@@ -34,10 +44,30 @@ const Quiz = (() => {
    * 不取第 I 欄「正確答案」與第 J 欄「講義出處」——
    * 前端拿不到答案，也就沒得從原始碼偷看。
    */
+  /**
+   * 「期末保留」欄（題庫的第 K 欄）有填任何字的題目，刷題練習抽不到 —— 留給期末考。
+   *
+   * 過濾刻意在 Google 那端做，不是抓回來再篩：保留題連下載都不會下載，
+   * 學員按 F12 看網路封包也翻不到期末考題。
+   * 題庫還沒加這一欄時，gviz 會回一段 JSON 錯誤而不是 CSV，這時退回原本的不過濾行為，
+   * 讓刷題照常運作（而不是整個掛掉）。
+   */
+  const RESERVE_COL = 'K';
+
+  async function fetchBankRows(id) {
+    const tab = cfg().quizBankSheet || '題庫';
+    const rows = await Sheet
+      .fetchRows(id, tab, `select A,B,C,D,E,F,G,H where ${RESERVE_COL} is null`)
+      .catch(() => null);
+
+    const failed = !rows || !rows.length || String(rows[0][0] ?? '').trim().startsWith('{');
+    return failed ? Sheet.fetchRows(id, tab, 'select A,B,C,D,E,F,G,H') : rows;
+  }
+
   async function fetchBank() {
     const id = Sheet.parseId(cfg().sheetId);
     if (!id) throw new Error('還沒設定班級試算表');
-    const rows = await Sheet.fetchRows(id, cfg().quizBankSheet || '題庫', 'select A,B,C,D,E,F,G,H');
+    const rows = await fetchBankRows(id);
     if (rows.length < 2) throw new Error('「題庫」分頁還沒有題目');
 
     const out = [];
@@ -50,7 +80,7 @@ const Quiz = (() => {
       out.push({ key: `${subject}#${num || (i + 1)}`, subject, topic, stem, options });
     });
     if (out.length < PER_ROUND)
-      throw new Error(`題庫只有 ${out.length} 題，不足 ${PER_ROUND} 題`);
+      throw new Error(`題庫可抽的題目只有 ${out.length} 題（已扣掉期末保留），不足 ${PER_ROUND} 題`);
     return out;
   }
 
@@ -61,6 +91,7 @@ const Quiz = (() => {
    * （真正的閘門在後端交卷時，所以最壞情況也只是畫面不準。）
    */
   async function fetchUsedToday(name) {
+    if (isTest(name)) return 0;      // 測試帳號不寫紀錄，也就沒有次數上限
     const id = Sheet.parseId(cfg().sheetId);
     if (!id) throw new Error('還沒設定班級試算表');
 
@@ -74,6 +105,40 @@ const Quiz = (() => {
       const d = String(r[0] ?? '').trim().slice(0, 10);
       return d === today && String(r[1] ?? '').trim() === target;
     }).length;
+  }
+
+  /**
+   * 交卷失敗後的救援：直接去「刷題紀錄」把這一回合的成績撈回來。
+   *
+   * 交卷走 Apps Script，實測會忽快忽慢（2～27 秒）還會隨機回 404；
+   * 送不出去時後端其實常常已經寫進去了，學員卻只看到紅字錯誤，
+   * 第三次遇到就被每日上限鎖住，成績永遠看不到 —— 這個函式就是補這個洞。
+   *
+   * 走 gviz（抓名單、抓題庫的同一條路，實測沒失敗過），不碰 Apps Script。
+   * 撈得到分數，但撈不到逐題檢討 —— 正解不在前端讀得到的欄位裡，
+   * 所以 detail 是空的，畫面會註明這次沒有檢討可看。
+   */
+  async function recoverRound(name, roundId) {
+    const id = Sheet.parseId(cfg().sheetId);
+    if (!id || !roundId) return null;
+
+    // 日期,姓名,得分,答對,題數,回合編號
+    const rows = (await Sheet.fetchRows(id, cfg().quizLogSheet || '刷題紀錄', 'select B,D,F,G,H,K')).slice(1);
+    const hit = rows.find(r => String(r[5] ?? '').trim() === roundId);
+    if (!hit) return null;                       // 真的沒寫進去，那就讓原本的錯誤浮上來
+
+    // 順便把今天用掉幾次一起算出來，省一趟查詢
+    const today = new Date().toLocaleDateString('sv-SE');
+    const used = rows.filter(r => String(r[0] ?? '').trim().slice(0, 10) === today
+                               && String(r[1] ?? '').trim() === name.trim()).length;
+
+    return {
+      ok: true, name,
+      score: Number(hit[2]) || 0, correct: Number(hit[3]) || 0, total: Number(hit[4]) || 0,
+      used, limit: DAILY_LIMIT, remaining: Math.max(0, DAILY_LIMIT - used),
+      pointsEarned: cfg().quizPoints ?? 0.5,
+      detail: [], recovered: true,
+    };
   }
 
   const S = {
@@ -162,14 +227,15 @@ const Quiz = (() => {
   }
 
   async function chooseUser(name) {
-    const s = students.find(x => x.name === name);
+    const s = isTest(name) ? TEST_USER : students.find(x => x.name === name);
     if (!s) return;
     S.user = { name: s.name, seat: s.seat || '', avatar: s.avatar || '🙂' };
     localStorage.setItem(USER_KEY, JSON.stringify(S.user));
 
     // 先換頁再查後端 —— Apps Script 要好幾秒才回，卡在名單頁不動會被當成壞掉
     S.status = null;
-    S.stage = 'ready';
+    S.result = loadLast(S.user.name);          // 今天已經考過就直接把成績攤開給他看
+    S.stage = S.result ? 'result' : 'ready';
     render();
     await refreshStatus();
   }
@@ -228,16 +294,46 @@ const Quiz = (() => {
 
   async function submit() {
     await guard(async () => {
-      S.result = await call('submit', null, {
-        name: S.user.name,
-        seat: S.user.seat,
-        roundId: S.roundId,
-        seconds: Math.round((Date.now() - S.startedAt) / 1000),
-        answers: S.questions.map((q, i) => ({ key: q.key, pick: S.picks[i] })),
-      });
+      try {
+        S.result = await call('submit', null, {
+          name: S.user.name,
+          seat: S.user.seat,
+          roundId: S.roundId,
+          seconds: Math.round((Date.now() - S.startedAt) / 1000),
+          answers: S.questions.map((q, i) => ({ key: q.key, pick: S.picks[i] })),
+        });
+      } catch (e) {
+        // 送不出去不代表沒記到 —— 先去試算表找找這一回合，找不到才把原錯誤丟出去
+        const saved = await recoverRound(S.user.name, S.roundId).catch(() => null);
+        if (!saved) throw e;
+        S.result = saved;
+      }
       S.status = S.result;
       S.stage = 'result';
+      saveLast();
     }, 'submit');
+  }
+
+  /* ── 成績存本機：連線再怎麼不順，分數至少不會從畫面上消失 ── */
+
+  function saveLast() {
+    try {
+      localStorage.setItem(LAST_KEY, JSON.stringify({
+        name: S.user?.name,
+        date: new Date().toLocaleDateString('sv-SE'),
+        result: S.result,
+      }));
+    } catch { /* 存不下就算了，不能影響作答 */ }
+  }
+
+  /** 取回同一個人、同一天的成績；隔天就不給了（免得早上打開看到昨天的分數） */
+  function loadLast(name) {
+    try {
+      const v = JSON.parse(localStorage.getItem(LAST_KEY) || 'null');
+      if (v && v.result && v.name === name &&
+          v.date === new Date().toLocaleDateString('sv-SE')) return v.result;
+    } catch { /* 存檔壞了就當作沒有 */ }
+    return null;
   }
 
   /**
@@ -316,6 +412,11 @@ const Quiz = (() => {
               <span class="quiz-person-seat">${esc(s.seat || '')}</span>
               <span class="quiz-person-name">${esc(s.name)}</span>
             </button>`).join('')}
+          <button class="quiz-person is-test" data-act="pick" data-name="${esc(TEST_USER.name)}">
+            <span class="quiz-person-ava">${TEST_USER.avatar}</span>
+            <span class="quiz-person-seat">測試</span>
+            <span class="quiz-person-name">${esc(TEST_USER.name)}</span>
+          </button>
         </div>
       </div>`;
   }
@@ -334,6 +435,18 @@ const Quiz = (() => {
     const left = st.remaining ?? 0;
     const pts = st.pointsPerPractice ?? 0;
     const limit = st.limit ?? 3;
+
+    // 測試帳號：不限次數，也不會留下任何紀錄，所以不畫「還剩幾次」的燈號
+    if (isTest(S.user?.name)) {
+      return `
+        <div class="quiz-ready">
+          ${who()}
+          <p class="quiz-hint">🧪 測試帳號：不限次數、不寫紀錄、不加分，隨便測。</p>
+          <button class="btn btn-primary btn-lg" data-act="start" ${S.busy ? 'disabled' : ''}>
+            ${S.busy === 'start' ? '出題中，請稍候…' : S.busy ? '讀取中…' : '🎯 開始練習（10 題）'}
+          </button>
+        </div>`;
+    }
 
     return `
       <div class="quiz-ready">
@@ -395,7 +508,7 @@ const Quiz = (() => {
           <button class="btn" data-act="prev" ${i === 0 ? 'disabled' : ''}>← 上一題</button>
           ${last
             ? `<button class="btn btn-primary" data-act="submit" ${S.busy ? 'disabled' : ''}>
-                 ${S.busy === 'submit' ? '計分中，請稍候…' : `✅ 交卷（已作答 ${answered}/${S.questions.length}）`}
+                 ${S.busy === 'submit' ? '計分中…最久 30 秒，別重整' : `✅ 交卷（已作答 ${answered}/${S.questions.length}）`}
                </button>`
             : `<button class="btn btn-primary" data-act="next">下一題 →</button>`}
         </div>
@@ -406,7 +519,8 @@ const Quiz = (() => {
     const r = S.result || {};
     const tone = r.score >= 80 ? 'is-good' : r.score >= 60 ? 'is-ok' : 'is-low';
     // 剩餘次數以最新查到的為準，不是交卷當下那個數字
-    const left = S.status?.remaining ?? r.remaining ?? 0;
+    const test = isTest(S.user?.name);
+    const left = test ? 1 : (S.status?.remaining ?? r.remaining ?? 0);
 
     return `
       <div class="quiz-result">
@@ -415,9 +529,14 @@ const Quiz = (() => {
           <span class="quiz-score-num">${r.score}</span>
           <span class="quiz-score-sub">答對 ${r.correct} / ${r.total} 題</span>
         </div>
-        <p class="quiz-earned">${r.alreadyRecorded
-          ? `這份已經記錄過了，沒有重複加分 · 今天還剩 ${left} 次`
-          : `互動成績 +${r.pointsEarned} 分已記錄 · 今天還剩 ${left} 次`}</p>
+        <p class="quiz-earned">${
+          test ? '🧪 測試帳號：沒有寫入任何紀錄，也沒有加分' :
+          r.alreadyRecorded
+            ? `這份已經記錄過了，沒有重複加分 · 今天還剩 ${left} 次`
+            : `互動成績 +${r.pointsEarned} 分已記錄 · 今天還剩 ${left} 次`}</p>
+        ${r.recovered ? `
+          <p class="quiz-recovered">📡 交卷時網路不順，這份成績是從紀錄裡撈回來的
+          —— <strong>分數與加分都已經記錄好了</strong>，只是這次沒有逐題檢討可以看。</p>` : ''}
 
         <ol class="quiz-review">
           ${(r.detail || []).map((d, n) => `
@@ -471,8 +590,13 @@ const Quiz = (() => {
       students = list || [];
       if (!S.user) {
         const saved = loadUser();
-        // 名單換人時，舊的選擇要作廢，才不會用已離班的名字送出紀錄
-        if (saved && students.some(s => s.name === saved.name)) S.user = saved;
+        // 名單換人時，舊的選擇要作廢，才不會用已離班的名字送出紀錄（測試帳號不受名單影響）
+        if (saved && (isTest(saved.name) || students.some(s => s.name === saved.name))) {
+          S.user = saved;
+          // 重新整理、關掉再開，成績都還在（不然第三次考完一重整就永遠看不到了）
+          const last = loadLast(saved.name);
+          if (last) { S.result = last; S.stage = 'result'; }
+        }
       }
       render();
     },
