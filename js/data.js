@@ -219,10 +219,12 @@ const Sheet = (() => {
     return '';
   }
 
-  function endpoints(id, sheetName) {
+  /** @param {string} [tq] gviz 查詢語法，例如 'select A,B,C' —— 用來只取需要的欄位 */
+  function endpoints(id, sheetName, tq) {
     const tab = sheetName ? `&sheet=${encodeURIComponent(sheetName)}` : '';
+    const q   = tq ? `&tq=${encodeURIComponent(tq)}` : '';
     const urls = [
-      `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${tab}`
+      `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv${tab}${q}`
     ];
     // 「發布到網路」產生的 2PACX- 型 ID 走另一個端點
     if (id.startsWith('2PACX-')) {
@@ -396,9 +398,9 @@ const Sheet = (() => {
   }
 
   /** 抓某個分頁的 CSV 並切成列；依序嘗試各端點，全部失敗才拋錯。 */
-  async function fetchRows(id, sheetName) {
+  async function fetchRows(id, sheetName, tq) {
     let lastErr;
-    for (const url of endpoints(id, sheetName)) {
+    for (const url of endpoints(id, sheetName, tq)) {
       try {
         const res = await fetch(url + `&_=${Date.now()}`, { redirect: 'follow' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -521,5 +523,5 @@ const Sheet = (() => {
   }
 
   return { fetchStudents, fetchPerfLog, applyPerfLog, parseId, parseCSV, rowsToStudents,
-           demoStudents, TEMPLATE_HEADER, LOG_TEMPLATE_HEADER };
+           fetchRows, demoStudents, TEMPLATE_HEADER, LOG_TEMPLATE_HEADER };
 })();

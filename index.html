@@ -6,7 +6,7 @@
 <title>線規新人排位賽2026</title>
 <meta name="description" content="線規新人排位賽2026：練習賽、活躍度、終極考驗依配分即時排位。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20260812a">
 </head>
 <body>
 
@@ -26,6 +26,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab is-active" data-view="solo" role="tab">個人榜</button>
     <button class="tab" data-view="team" role="tab">公會戰</button>
+    <button class="tab" data-view="quiz" role="tab">刷題</button>
     <button class="tab" data-view="settings" role="tab">設定</button>
   </nav>
 
@@ -67,6 +68,15 @@
     </div>
     <div class="team-grid" id="teamGrid"></div>
     <p class="board-empty" id="teamEmpty" hidden>試算表中沒有「組別」欄位，或所有人都未分組。</p>
+  </section>
+
+  <!-- ══════════ 刷題練習 ══════════ -->
+  <section class="view" id="view-quiz">
+    <div class="board-head">
+      <div class="board-title"><h2>刷題練習</h2><span class="chip">每天 3 次</span></div>
+      <p class="hint">隨機抽 10 題。分數不算進學習成績，但每練完一次，互動成績就加分。</p>
+    </div>
+    <div id="quizBody"></div>
   </section>
 
   <!-- ══════════ 設定 ══════════ -->
@@ -257,6 +267,14 @@
     // 各項配分，相加＝學期成績滿分。練習賽那份由三場練習賽平分。
     weights: { quality: 30, performance: 20, exam: 50 },
 
+    // ── 刷題練習 ──
+    // 題目與剩餘次數走上面那個 sheetId 的 gviz（跟同步名單同一條路，穩）；
+    // 只有「交卷」會呼叫下面這個 Apps Script 網址。設定步驟見 apps-script/刷題後端.gs
+    quizApi: 'https://script.google.com/macros/s/AKfycbw-2DK5jrRaQwpJNOxRJgv9Nfy5ts58xx4ap2xaWbVsO3J0fu1lCgNQpQcqQb429BC2LQ/exec',
+    quizBankSheet: '題庫',       // 題庫分頁名
+    quizLogSheet: '刷題紀錄',     // 練習紀錄分頁名
+    quizPoints: 0.5,            // 每練一次加多少互動成績（要跟後端的 POINTS_PER_PRACTICE 一致）
+
     // 「設定」分頁的密碼，存的是 SHA-256 雜湊而不是明碼。
     // 要換密碼：README 有算新雜湊的一行指令。設成空字串就完全不上鎖。
     //
@@ -267,10 +285,11 @@
   };
 </script>
 
-<script src="js/data.js"></script>
-<script src="js/effects.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/ceremony.js"></script>
-<script src="js/app.js"></script>
+<script src="js/data.js?v=20260812a"></script>
+<script src="js/effects.js?v=20260812a"></script>
+<script src="js/ui.js?v=20260812a"></script>
+<script src="js/ceremony.js?v=20260812a"></script>
+<script src="js/quiz.js?v=20260812a"></script>
+<script src="js/app.js?v=20260812a"></script>
 </body>
 </html>

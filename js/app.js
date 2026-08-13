@@ -29,6 +29,7 @@
       : '賽季進行中';
     renderWeightMini();
     renderGrades();
+    Quiz.setStudents(st.students);
   }
 
   /** 學期成績清單：期末要輸入學習系統的 0–100 分，只在設定頁出現 */
@@ -163,6 +164,7 @@
     $$('.tab').forEach(t => t.classList.toggle('is-active', t.dataset.view === name));
     $$('.view').forEach(v => v.classList.toggle('is-active', v.id === `view-${name}`));
     if (name === 'settings') applyLockState();
+    if (name === 'quiz') Quiz.onEnter();
   }
 
   /* ── 設定鎖 ───────────────────────────────────────────
@@ -428,6 +430,7 @@
 
     document.addEventListener('keydown', e => {
       if (Ceremony.handleKey(e)) return;
+      if (Quiz.handleKey(e)) return;
       if (e.target.matches('input, textarea')) return;
 
       switch (e.key.toLowerCase()) {
@@ -437,7 +440,8 @@
         case 'c': Ceremony.open(rows); break;
         case '1': switchView('solo'); break;
         case '2': switchView('team'); break;
-        case '3': switchView('settings'); break;
+        case '3': switchView('quiz'); break;
+        case '4': switchView('settings'); break;
       }
     });
   }
