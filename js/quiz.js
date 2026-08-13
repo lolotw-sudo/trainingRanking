@@ -37,6 +37,23 @@ const Quiz = (() => {
   const TEST_USER = { name: 'LOLO老師', seat: '', avatar: '🧑‍🏫' };
   const isTest = n => String(n || '').trim() === TEST_USER.name;
 
+  /**
+   * 測試帳號的密碼閘門。
+   * 存的是雜湊不是明碼 —— 學員按 F12 翻原始碼不會直接看到密碼。
+   * 但要講清楚：這擋的是「順手點點看」的學員，擋不住真的想破解的人
+   * （前端的密碼一定破得了）。真正的保險是測試帳號不寫任何紀錄、不佔排名，
+   * 就算被闖進去也偷不到分數。
+   */
+  const TEST_PASS = 'zvr4k0';
+  const PASS_KEY  = 'trainingArena.quizTeacher';
+  const hash = s => {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  };
+  /** 解鎖過就記住，同一台電腦不用每次重打 */
+  const unlocked = () => localStorage.getItem(PASS_KEY) === TEST_PASS;
+
   /* ── 讀：走 gviz，跟同步學員名單同一條路 ───────────── */
 
   /**
@@ -227,6 +244,7 @@ const Quiz = (() => {
   }
 
   async function chooseUser(name) {
+    if (isTest(name) && !askPass()) return;
     const s = isTest(name) ? TEST_USER : students.find(x => x.name === name);
     if (!s) return;
     S.user = { name: s.name, seat: s.seat || '', avatar: s.avatar || '🙂' };
@@ -238,6 +256,22 @@ const Quiz = (() => {
     S.stage = S.result ? 'result' : 'ready';
     render();
     await refreshStatus();
+  }
+
+  /** 測試帳號的密碼關卡。已解鎖或通過回 true；按取消、打錯回 false */
+  function askPass() {
+    if (unlocked()) return true;
+
+    const pw = prompt('這是老師的測試帳號，請輸入密碼：');
+    if (pw === null) return false;                   // 按取消就安靜回名單
+
+    if (hash(pw.trim()) !== TEST_PASS) {
+      S.error = '密碼不對，這個帳號是老師測試用的。請點選你自己的名字。';
+      render();
+      return false;
+    }
+    localStorage.setItem(PASS_KEY, TEST_PASS);
+    return true;
   }
 
   function forgetUser() {
@@ -414,7 +448,7 @@ const Quiz = (() => {
             </button>`).join('')}
           <button class="quiz-person is-test" data-act="pick" data-name="${esc(TEST_USER.name)}">
             <span class="quiz-person-ava">${TEST_USER.avatar}</span>
-            <span class="quiz-person-seat">測試</span>
+            <span class="quiz-person-seat">🔒 測試</span>
             <span class="quiz-person-name">${esc(TEST_USER.name)}</span>
           </button>
         </div>
@@ -591,7 +625,8 @@ const Quiz = (() => {
       if (!S.user) {
         const saved = loadUser();
         // 名單換人時，舊的選擇要作廢，才不會用已離班的名字送出紀錄（測試帳號不受名單影響）
-        if (saved && (isTest(saved.name) || students.some(s => s.name === saved.name))) {
+        // 測試帳號要解鎖過才續用，免得密碼清掉後還留在測試身分
+        if (saved && ((isTest(saved.name) && unlocked()) || students.some(s => s.name === saved.name))) {
           S.user = saved;
           // 重新整理、關掉再開，成績都還在（不然第三次考完一重整就永遠看不到了）
           const last = loadLast(saved.name);
