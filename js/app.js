@@ -105,6 +105,7 @@
 
       Store.set({ students, lastSync: Date.now() });
       refresh();
+      Log.invalidate();
       setSyncStatus(`已同步 ${timeStr(Date.now())}`, 'sync-ok');
       setSheetStatus(`✅ 讀到 ${students.length} 位學員。${note}`, note.includes('⚠️') ? '' : 'ok');
       if (!silent) FX.toast(`已從試算表讀入 ${students.length} 位學員`, 'ok');
@@ -165,6 +166,7 @@
     $$('.view').forEach(v => v.classList.toggle('is-active', v.id === `view-${name}`));
     if (name === 'settings') applyLockState();
     if (name === 'quiz') Quiz.onEnter();
+    if (name === 'log') Log.onEnter();
   }
 
   /* ── 設定鎖 ───────────────────────────────────────────
@@ -440,8 +442,9 @@
         case 'c': Ceremony.open(rows); break;
         case '1': switchView('solo'); break;
         case '2': switchView('team'); break;
-        case '3': switchView('quiz'); break;
-        case '4': switchView('settings'); break;
+        case '3': switchView('log'); break;
+        case '4': switchView('quiz'); break;
+        case '5': switchView('settings'); break;
       }
     });
   }
@@ -457,6 +460,7 @@
     hydrateSettings();
     bindWeights();
     bindEvents();
+    Log.initWall();
     applyLockState();
     refresh();
 

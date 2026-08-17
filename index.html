@@ -6,7 +6,7 @@
 <title>線規新人排位賽2026</title>
 <meta name="description" content="線規新人排位賽2026：練習賽、活躍度、終極考驗依配分即時排位。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
-<link rel="stylesheet" href="css/style.css?v=20260812a">
+<link rel="stylesheet" href="css/style.css?v=20260817b">
 </head>
 <body>
 
@@ -26,6 +26,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab is-active" data-view="solo" role="tab">個人榜</button>
     <button class="tab" data-view="team" role="tab">公會戰</button>
+    <button class="tab" data-view="log" role="tab">賽季日誌</button>
     <button class="tab" data-view="quiz" role="tab">刷題</button>
     <button class="tab" data-view="settings" role="tab">設定</button>
   </nav>
@@ -68,6 +69,18 @@
     </div>
     <div class="team-grid" id="teamGrid"></div>
     <p class="board-empty" id="teamEmpty" hidden>試算表中沒有「組別」欄位，或所有人都未分組。</p>
+  </section>
+
+  <!-- ══════════ 賽季日誌 ══════════ -->
+  <section class="view" id="view-log">
+    <div class="board-head">
+      <div class="board-title"><h2>賽季日誌</h2></div>
+      <p class="hint">一週一段的班級歷程：那幾天上了什麼、我的側記，還有那一週的學習分析報告。</p>
+      <a class="btn btn-ghost wall-link" id="btnWall" target="_blank" rel="noopener" hidden>
+        <span class="btn-ico">💬</span><span class="btn-label">匿名話牆</span>
+      </a>
+    </div>
+    <div id="logBody"></div>
   </section>
 
   <!-- ══════════ 刷題練習 ══════════ -->
@@ -267,6 +280,17 @@
     // 各項配分，相加＝學期成績滿分。練習賽那份由三場練習賽平分。
     weights: { quality: 30, performance: 20, exam: 50 },
 
+    // ── 賽季日誌 ──
+    // 兩個分頁都是選配的：沒建立就只是那一塊不顯示，不會影響其他功能。
+    logCourseSheet: '課程表',    // 一堂一列：週次 / 日期 / 主題 / 講師 / 側記
+    logReportSheet: '學習報告',  // 一週一列：週次 / 期間 / 重點數據 / 摘要 / 學員回饋 / 成效評估 / 改善方向
+    logAlbumSheet:  '課堂相簿',  // 一張一列：日期 / 檔案ID / 檔名（由 Apps Script 從 Drive 資料夾自動索引）
+
+    // Slido 匿名話牆。留空就不顯示按鈕。
+    // 這是從 Slido 管理介面複製的連結；若要換成給學員的「參與者連結」，
+    // 在 Slido 的 Share → Participant link 複製後貼過來即可。
+    wallUrl: 'https://wall.sli.do/event/reSGFE4zSydPuHTe99RpWK?section=0deb18f0-27c0-46a9-88f1-8b2f548a3107&integration=shared-present-mode&utm_source=slidoadmin',
+
     // ── 刷題練習 ──
     // 題目與剩餘次數走上面那個 sheetId 的 gviz（跟同步名單同一條路，穩）；
     // 只有「交卷」會呼叫下面這個 Apps Script 網址。設定步驟見 apps-script/刷題後端.gs
@@ -285,11 +309,12 @@
   };
 </script>
 
-<script src="js/data.js?v=20260812a"></script>
-<script src="js/effects.js?v=20260812a"></script>
-<script src="js/ui.js?v=20260812a"></script>
-<script src="js/ceremony.js?v=20260812a"></script>
-<script src="js/quiz.js?v=20260812a"></script>
-<script src="js/app.js?v=20260812a"></script>
+<script src="js/data.js?v=20260817b"></script>
+<script src="js/effects.js?v=20260817b"></script>
+<script src="js/ui.js?v=20260817b"></script>
+<script src="js/ceremony.js?v=20260817b"></script>
+<script src="js/quiz.js?v=20260817b"></script>
+<script src="js/log.js?v=20260817b"></script>
+<script src="js/app.js?v=20260817b"></script>
 </body>
 </html>

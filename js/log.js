@@ -1,0 +1,331 @@
+/* ============================================================
+   log.js — 賽季日誌：一週一段的班級歷程
+   ------------------------------------------------------------
+   讀兩個新分頁，都走 gviz（跟同步名單同一條路，穩）：
+     「課程表」  一堂一列 —— 週次 / 日期 / 主題 / 講師 / 側記
+     「學習報告」一週一列 —— 週次 / 期間 / 重點數據 / 摘要 /
+                            學員回饋 / 成效評估 / 改善方向
+
+   每一欄都可以留空，留空就不畫那一塊 —— 側記還沒寫、報告還沒出，
+   畫面只是少一段，不會壞掉也不會開天窗。
+
+   分頁不存在時 gviz 會安靜地退回第一個分頁（也就是學員總表），
+   所以讀回來一定要驗表頭，不然會把成績當課程表畫出來。
+   ============================================================ */
+
+const Log = (() => {
+
+  const $ = sel => document.querySelector(sel);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const cfg = () => window.ARENA_CONFIG || {};
+  const val = (row, i) => (i >= 0 ? String(row[i] ?? '').trim() : '');
+  /** 一格內的多行拆成陣列（學員回饋、改善方向都是一格多則） */
+  const lines = s => s.split(/\r?\n/).map(t => t.trim()).filter(Boolean);
+
+  let cache = null;      // 讀成功就留著，切分頁不重讀
+  let loading = false;
+
+  const LESSON_ALIASES = {
+    week:    ['週次', '週別', '周次', '週'],
+    date:    ['日期', 'date'],
+    topic:   ['主題', '課程', '單元', '課程名稱'],
+    teacher: ['講師', '老師', 'teacher'],
+    note:    ['側記', '筆記', '花絮', '隨手記']
+  };
+
+  const ALBUM_ALIASES = {
+    date:   ['日期'],
+    fileId: ['檔案id', 'id', '檔案'],
+    name:   ['檔名', '名稱']
+  };
+
+  const REPORT_ALIASES = {
+    week:    ['週次', '週別', '周次', '週'],
+    range:   ['期間', '日期範圍'],
+    stats:   ['重點數據', '數據', '統計'],
+    summary: ['摘要', '概述'],
+    voices:  ['學員回饋', '回饋', '學員意見'],
+    review:  ['成效評估', '評估', '成效'],
+    actions: ['改善方向', '改善', '調整']
+  };
+
+  /** 依別名比對表頭，回傳 {欄位: 索引}；找不到的是 -1 */
+  function mapCols(header, aliases) {
+    const norm = header.map(h => String(h ?? '').trim().toLowerCase().replace(/\s+/g, ''));
+    const idx = {};
+    for (const [key, words] of Object.entries(aliases)) {
+      idx[key] = norm.findIndex(h => h && words.some(w => h.includes(w.toLowerCase())));
+    }
+    return idx;
+  }
+
+  /** 「第1週」「第 10 週」→ 數字，用來排序；抓不到就排到最後 */
+  const weekNo = s => {
+    const m = String(s).match(/\d+/);
+    return m ? parseInt(m[0], 10) : 9999;
+  };
+
+  /**
+   * 日期收斂成 "8/12" 當比對鍵：課程表寫「8/12（三）」、相簿寫「8/12」，
+   * 「2026/8/12」「8月12日」也都收得進來。
+   */
+  const dayKey = s => {
+    const m = String(s ?? '').match(/(\d{1,2})\s*[\/\-月.]\s*(\d{1,2})/);
+    return m ? `${+m[1]}/${+m[2]}` : '';
+  };
+
+  /* ── 讀分頁 ───────────────────────────────────────── */
+
+  /**
+   * 讀一個分頁並驗表頭。分頁不存在時 gviz 會退回第一個分頁，
+   * 那時 must 指定的欄位一定找不到 —— 回 null 當作「還沒建這個分頁」。
+   */
+  async function fetchTab(id, tabName, aliases, must) {
+    const rows = await Sheet.fetchRows(id, tabName).catch(() => null);
+    if (!rows || rows.length < 2) return null;
+
+    const idx = mapCols(rows[0], aliases);
+    if (must.some(k => idx[k] < 0)) return null;
+    return { idx, body: rows.slice(1) };
+  }
+
+  async function fetchLessons(id) {
+    const tab = await fetchTab(id, cfg().logCourseSheet || '課程表', LESSON_ALIASES, ['topic']);
+    if (!tab) return [];
+
+    return tab.body.map(r => ({
+      week:    val(r, tab.idx.week),
+      date:    val(r, tab.idx.date),
+      topic:   val(r, tab.idx.topic),
+      teacher: val(r, tab.idx.teacher),
+      note:    val(r, tab.idx.note)
+    })).filter(l => l.topic);
+  }
+
+  async function fetchReports(id) {
+    const tab = await fetchTab(id, cfg().logReportSheet || '學習報告', REPORT_ALIASES, ['week']);
+    if (!tab) return [];
+
+    return tab.body.map(r => ({
+      week:    val(r, tab.idx.week),
+      range:   val(r, tab.idx.range),
+      stats:   val(r, tab.idx.stats),
+      summary: val(r, tab.idx.summary),
+      voices:  lines(val(r, tab.idx.voices)),
+      review:  val(r, tab.idx.review),
+      actions: lines(val(r, tab.idx.actions))
+    })).filter(rep => rep.week);
+  }
+
+  async function fetchAlbum(id) {
+    const tab = await fetchTab(id, cfg().logAlbumSheet || '課堂相簿', ALBUM_ALIASES, ['fileId']);
+    if (!tab) return [];
+
+    return tab.body.map(r => ({
+      day:  dayKey(val(r, tab.idx.date)),
+      id:   val(r, tab.idx.fileId),
+      name: val(r, tab.idx.name)
+    })).filter(p => p.id && p.day);
+  }
+
+  /* ── 分組：週 → 天 → 課 ───────────────────────────── */
+
+  function groupByWeek(lessons, reports, photos) {
+    const weeks = new Map();
+
+    const bucket = key => {
+      if (!weeks.has(key)) weeks.set(key, { week: key, days: new Map(), report: null });
+      return weeks.get(key);
+    };
+
+    lessons.forEach(l => {
+      const w = bucket(l.week || '未分週');
+      if (!w.days.has(l.date)) w.days.set(l.date, { date: l.date, note: '', items: [], photos: [] });
+      const day = w.days.get(l.date);
+      day.items.push(l);
+      // 側記一天一則：同一天有多堂課時，取第一個有填的
+      if (!day.note && l.note) day.note = l.note;
+    });
+
+    // 照片依拍攝日掛到對應那一天；課程表沒有那一天就不顯示
+    if (photos.length) {
+      const byDay = new Map();
+      weeks.forEach(w => w.days.forEach(d => {
+        const k = dayKey(d.date);
+        if (k) byDay.set(k, d);
+      }));
+      photos.forEach(p => {
+        const day = byDay.get(p.day);
+        if (day) day.photos.push(p);
+      });
+    }
+
+    reports.forEach(rep => { bucket(rep.week).report = rep; });
+
+    return [...weeks.values()]
+      .sort((a, b) => weekNo(b.week) - weekNo(a.week))   // 最新的一週排最上面
+      .map(w => ({ ...w, days: [...w.days.values()] }));
+  }
+
+  /* ── 畫面 ─────────────────────────────────────────── */
+
+  /** 「參訓人數=17 / 回收率=100%」→ 數據卡 */
+  function renderStats(raw) {
+    const cards = raw.split('/').map(s => s.trim()).filter(Boolean).map(s => {
+      const [label, value] = s.split('=').map(t => (t || '').trim());
+      return value ? { label, value } : { label: '', value: label };
+    });
+    if (!cards.length) return '';
+
+    return `<div class="rp-stats">${cards.map(c => `
+      <div class="rp-stat">
+        <div class="rp-stat-value">${esc(c.value)}</div>
+        ${c.label ? `<div class="rp-stat-label">${esc(c.label)}</div>` : ''}
+      </div>`).join('')}</div>`;
+  }
+
+  function renderReport(rep) {
+    if (!rep) return '';
+
+    const block = (title, html) => html
+      ? `<div class="rp-block"><h4 class="rp-h">${title}</h4>${html}</div>` : '';
+
+    const para = t => t ? `<p class="rp-text">${esc(t)}</p>` : '';
+
+    const voices = rep.voices.length
+      ? `<div class="rp-voices">${rep.voices.map(v =>
+          `<blockquote class="rp-voice">${esc(v)}</blockquote>`).join('')}</div>`
+      : '';
+
+    const actions = rep.actions.length
+      ? `<ul class="rp-actions">${rep.actions.map(a =>
+          `<li>${esc(a)}</li>`).join('')}</ul>`
+      : '';
+
+    return `
+      <div class="rp">
+        <div class="rp-head">
+          <span class="rp-badge">學習分析報告</span>
+          ${rep.range ? `<span class="rp-range">${esc(rep.range)}</span>` : ''}
+        </div>
+        ${rep.stats ? renderStats(rep.stats) : ''}
+        ${block('這一週的整體樣貌', para(rep.summary))}
+        ${block('學員說了什麼', voices)}
+        ${block('學習成效', para(rep.review))}
+        ${block('我接下來會這樣調整', actions)}
+      </div>`;
+  }
+
+  /**
+   * Drive 的兩個圖片端點都會偶發失敗（實測各約六分之一），但不會同時掛，
+   * 所以 lh3 掛掉就換 thumbnail。HEIC 由 Google 那端自動轉檔，瀏覽器看得到。
+   */
+  function renderPhotos(day) {
+    if (!day.photos.length) return '';
+
+    const thumb = id => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
+    const shots = day.photos.map((p, i) => `
+      <a class="lg-shot" href="https://drive.google.com/file/d/${esc(p.id)}/view"
+         target="_blank" rel="noopener">
+        <img loading="lazy" alt="${esc(day.date)} 課堂照片 ${i + 1}"
+             src="https://lh3.googleusercontent.com/d/${esc(p.id)}=w1200"
+             onerror="this.onerror=null;this.src='${thumb(p.id)}'">
+      </a>`).join('');
+
+    return `<div class="lg-shots">${shots}</div>`;
+  }
+
+  function renderDay(day) {
+    const items = day.items.map(l => `
+      <li class="lg-lesson">
+        <span class="lg-topic">${esc(l.topic)}</span>
+        ${l.teacher ? `<span class="lg-teacher">${esc(l.teacher)}</span>` : ''}
+      </li>`).join('');
+
+    return `
+      <div class="lg-day">
+        <div class="lg-date">${esc(day.date || '日期未填')}</div>
+        ${day.note ? `<p class="lg-note">${esc(day.note)}</p>` : ''}
+        ${renderPhotos(day)}
+        <ul class="lg-lessons">${items}</ul>
+      </div>`;
+  }
+
+  function renderWeek(w) {
+    return `
+      <section class="lg-week">
+        <header class="lg-week-head">
+          <h3>${esc(w.week)}</h3>
+          ${w.report && w.report.range ? `<span class="chip">${esc(w.report.range)}</span>` : ''}
+        </header>
+        <div class="lg-days">${w.days.map(renderDay).join('')}</div>
+        ${renderReport(w.report)}
+      </section>`;
+  }
+
+  function render(weeks) {
+    const body = $('#logBody');
+    if (!weeks.length) {
+      body.innerHTML = `
+        <div class="callout">
+          還沒讀到「課程表」分頁。到試算表建一個分頁叫 <code>課程表</code>，
+          第一列填 <code>週次 · 日期 · 主題 · 講師 · 側記</code>，再按上面的「同步」。
+        </div>`;
+      return;
+    }
+    body.innerHTML = weeks.map(renderWeek).join('');
+  }
+
+  /* ── 對外 ─────────────────────────────────────────── */
+
+  async function load(force = false) {
+    if (loading) return;
+    if (cache && !force) { render(cache); return; }
+
+    const id = Sheet.parseId(cfg().sheetId);
+    if (!id) {
+      $('#logBody').innerHTML = `<div class="callout err">還沒設定班級試算表，先到「設定」貼上連結。</div>`;
+      return;
+    }
+
+    loading = true;
+    $('#logBody').innerHTML = `<div class="callout">讀取中…</div>`;
+
+    try {
+      const [lessons, reports, photos] =
+        await Promise.all([fetchLessons(id), fetchReports(id), fetchAlbum(id)]);
+      cache = groupByWeek(lessons, reports, photos);
+      render(cache);
+    } catch (e) {
+      console.error('[log]', e);
+      $('#logBody').innerHTML =
+        `<div class="callout err">讀取失敗：${esc(e.message)}<br>檢查試算表共用權限是否為「知道連結的任何人 → 檢視者」。</div>`;
+    } finally {
+      loading = false;
+    }
+  }
+
+  /** 進到這個分頁才讀，不佔開場的同步 */
+  function onEnter() { load(); }
+
+  /** 按「同步」時一起更新；正在看這一頁就當場重畫 */
+  function invalidate() {
+    cache = null;
+    const view = document.getElementById('view-log');
+    if (view && view.classList.contains('is-active')) load();
+  }
+
+  /** Slido 話牆的連結寫在 ARENA_CONFIG.wallUrl，沒填就不顯示按鈕 */
+  function initWall() {
+    const url = (cfg().wallUrl || '').trim();
+    const btn = $('#btnWall');
+    if (!btn) return;
+    if (!url) { btn.hidden = true; return; }
+    btn.href = url;
+    btn.hidden = false;
+  }
+
+  return { onEnter, load, invalidate, initWall };
+})();

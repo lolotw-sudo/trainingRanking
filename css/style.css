@@ -1026,3 +1026,110 @@ main {
   animation: quizPulse 1.4s ease-in-out infinite;
 }
 @keyframes quizPulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* ============================================================
+   賽季日誌
+   ============================================================ */
+
+/* 說明文字獨佔一行，話牆按鈕才能跟標題並排在右邊 */
+#view-log .board-head .hint { flex: 1 1 100%; order: 3; }
+/* 頂欄按鈕在窄螢幕只留圖示，但話牆是陌生功能，手機上必須看得到字 */
+.wall-link { text-decoration: none; }
+.wall-link .btn-label { display: inline; }
+
+.lg-week { margin: 0 0 32px; }
+.lg-week-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 16px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--stroke);
+}
+.lg-week-head h3 { font-size: 15.5px; letter-spacing: .06em; }
+
+/* 一天一格，靠左邊那條線串成時間軸 */
+.lg-day {
+  position: relative; margin-bottom: 18px;
+  padding: 0 0 2px 20px; border-left: 2px solid var(--stroke);
+}
+.lg-day:last-child { border-left-color: transparent; }
+.lg-day::before {
+  content: ''; position: absolute; left: -6px; top: 4px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
+}
+.lg-date {
+  font-size: 12.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--cyan);
+}
+.lg-note {
+  margin: 8px 0 0; padding: 10px 13px;
+  font-size: 13.5px; line-height: 1.7; color: var(--text);
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,.04); border: 1px solid var(--stroke);
+}
+/* 照片：方形縮圖排排站，點了開 Drive 看原圖 */
+.lg-shots {
+  display: grid; gap: 6px; margin-top: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+}
+.lg-shot {
+  display: block; aspect-ratio: 1; overflow: hidden;
+  border-radius: var(--r-sm); border: 1px solid var(--stroke);
+  background: rgba(0,0,0,.3);
+  transition: transform .2s var(--ease-out), border-color .2s;
+}
+.lg-shot:hover { transform: translateY(-2px); border-color: var(--cyan); }
+.lg-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.lg-lessons { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.lg-lesson { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; font-size: 13.5px; }
+.lg-lesson::before { content: '·'; color: var(--text-faint); }
+.lg-topic { color: var(--text); }
+.lg-teacher { font-size: 12px; color: var(--text-faint); }
+
+/* ── 那一週的學習分析報告 ── */
+
+.rp {
+  margin-top: 18px; padding: 18px; border-radius: var(--r-lg);
+  background: var(--panel); border: 1px solid var(--stroke);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.rp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.rp-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  padding: 4px 11px; border-radius: 999px; color: #05060f;
+  background: linear-gradient(96deg, var(--cyan), var(--violet));
+}
+.rp-range { font-size: 12px; color: var(--text-faint); }
+
+.rp-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.rp-stat {
+  flex: 1 1 92px; padding: 11px 13px; border-radius: var(--r-md);
+  background: rgba(0,0,0,.26); border: 1px solid var(--stroke);
+}
+.rp-stat-value { font-size: 20px; font-weight: 700; color: var(--lime); letter-spacing: .02em; }
+.rp-stat-label { margin-top: 3px; font-size: 11.5px; color: var(--text-faint); }
+
+.rp-block + .rp-block { margin-top: 16px; }
+.rp-h {
+  margin: 0 0 8px; font-size: 12.5px; font-weight: 700;
+  letter-spacing: .08em; color: var(--text-dim);
+}
+.rp-text { margin: 0; font-size: 13.5px; line-height: 1.85; color: var(--text); }
+
+.rp-voices { display: flex; flex-direction: column; gap: 9px; }
+.rp-voice {
+  margin: 0; padding: 11px 14px; border-radius: var(--r-sm);
+  border-left: 3px solid var(--magenta);
+  background: rgba(232,121,249,.07);
+  font-size: 13px; line-height: 1.75; color: var(--text);
+}
+
+.rp-actions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
+.rp-actions li { font-size: 13px; line-height: 1.75; color: var(--text); }
+.rp-actions li::marker { color: var(--lime); }
+
+@media (max-width: 560px) {
+  .rp { padding: 15px; }
+  .rp-stat { flex: 1 1 100%; }
+  .lg-day { padding-left: 16px; }
+}
