@@ -6,7 +6,7 @@
 <title>線規新人排位賽2026</title>
 <meta name="description" content="線規新人排位賽2026：練習賽、活躍度、終極考驗依配分即時排位。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
-<link rel="stylesheet" href="css/style.css?v=20260818a">
+<link rel="stylesheet" href="css/style.css?v=20260818c">
 </head>
 <body>
 
@@ -34,9 +34,6 @@
   <div class="topbar-actions">
     <button class="btn btn-ghost" id="btnSync" title="從 Google 試算表重新讀取 (R)">
       <span class="btn-ico">🔄</span><span class="btn-label">同步</span>
-    </button>
-    <button class="btn btn-ghost" id="btnSnapshot" title="把全班目前名次存成一個回合，寫進試算表；之後才算得出進退步。需先解鎖設定 (S)">
-      <span class="btn-ico">📌</span><span class="btn-label">存檔回合</span>
     </button>
     <button class="btn btn-primary" id="btnCeremony" title="全螢幕頒獎典禮 (C)">
       <span class="btn-ico">🎬</span><span class="btn-label">頒獎典禮</span>
@@ -223,7 +220,12 @@
 
       <div class="panel">
         <h3 class="panel-title">🗂️ 賽季紀錄</h3>
-        <p class="hint">每次按「存檔回合」會把全班名次寫進試算表的「回合紀錄」分頁，用來計算進退步與「進步之星」。寫在試算表而不是瀏覽器，所以換裝置、學員手機上看到的都是同一份。建議一週存一次。</p>
+        <p class="hint">按「存檔回合」會把全班名次寫進試算表的「回合紀錄」分頁，用來計算進退步與「進步之星」。寫在試算表而不是瀏覽器，所以換裝置、學員手機上看到的都是同一份。建議一週存一次。</p>
+        <div class="row-actions">
+          <button class="btn btn-primary" id="btnSnapshot" title="把全班目前名次存成一個回合，寫進試算表 (S)">
+            <span class="btn-ico">📌</span><span class="btn-label">存檔回合</span>
+          </button>
+        </div>
         <ul class="snapshot-list" id="snapshotList"></ul>
         <div class="row-actions">
           <button class="btn btn-ghost" id="btnExport">匯出備份 JSON</button>
@@ -314,12 +316,12 @@
   };
 </script>
 
-<script src="js/data.js?v=20260818a"></script>
-<script src="js/effects.js?v=20260818a"></script>
-<script src="js/ui.js?v=20260818a"></script>
-<script src="js/ceremony.js?v=20260818a"></script>
-<script src="js/quiz.js?v=20260818a"></script>
-<script src="js/log.js?v=20260818a"></script>
-<script src="js/app.js?v=20260818a"></script>
+<script src="js/data.js?v=20260818c"></script>
+<script src="js/effects.js?v=20260818c"></script>
+<script src="js/ui.js?v=20260818c"></script>
+<script src="js/ceremony.js?v=20260818c"></script>
+<script src="js/quiz.js?v=20260818c"></script>
+<script src="js/log.js?v=20260818c"></script>
+<script src="js/app.js?v=20260818c"></script>
 </body>
 </html>

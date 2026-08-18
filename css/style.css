@@ -1037,6 +1037,8 @@ main {
 /* 頂欄按鈕在窄螢幕只留圖示，但話牆是陌生功能，手機上必須看得到字 */
 .wall-link { text-decoration: none; }
 .wall-link .btn-label { display: inline; }
+/* 同理：設定面板裡的按鈕不擠，只剩一個 📌 圖示根本看不出是做什麼的 */
+.panel .btn-label { display: inline; }
 
 .lg-week { margin: 0 0 32px; }
 .lg-week-head {
