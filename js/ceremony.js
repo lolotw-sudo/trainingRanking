@@ -21,18 +21,23 @@ const Ceremony = (() => {
   /** 依名次決定停留時間 — 越接近冠軍越慢，張力越高 */
   const dwell = rank => rank === 1 ? 6000 : rank <= 3 ? 4200 : 2400;
 
+  // 只揭曉前 6 名：17 人班的第 6 名剛好是白金段位的最後一位。
+  // 從最後一名開始念完全班會拖太久，後段班的人也不會想被公開唱名。
+  const REVEAL_FROM = 6;
+
   function open(rows) {
     if (!rows.length) { FX.toast('還沒有學員資料', 'err'); return; }
 
-    order = rows.slice().sort((a, b) => b.rank - a.rank);   // 17 → 1
+    // 人數不足 6 位時就是全部揭曉
+    order = rows.filter(r => r.rank <= REVEAL_FROM).sort((a, b) => b.rank - a.rank);   // 6 → 1
     cursor = -1;
     active = true;
 
     el.root().hidden = false;
     el.rank().innerHTML = `<span class="rk-in">準備好了嗎</span>`;
     el.rank().classList.remove('is-champion');
-    el.card().innerHTML = `<div class="cc-name">共 ${rows.length} 位選手</div>
-                           <div class="cc-meta"><span class="cc-score">即將揭曉</span></div>`;
+    el.card().innerHTML = `<div class="cc-name">前 ${order.length} 名即將揭曉</div>
+                           <div class="cc-meta"><span class="cc-score">全班共 ${rows.length} 位選手</span></div>`;
     el.card().classList.remove('is-champion');
     el.hint().innerHTML = '按 <kbd>空白鍵</kbd> 揭曉下一位 · <kbd>Esc</kbd> 離開';
 
