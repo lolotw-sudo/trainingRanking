@@ -237,6 +237,7 @@ main {
 .dot-q { background: var(--q); box-shadow: 0 0 8px var(--q); }
 .dot-p { background: var(--p); box-shadow: 0 0 8px var(--p); }
 .dot-e { background: var(--e); box-shadow: 0 0 8px var(--e); }
+.dot-z { background: var(--z); box-shadow: 0 0 8px var(--z); }
 
 .board-empty {
   text-align: center; color: var(--text-faint); font-size: 13.5px;
@@ -412,6 +413,7 @@ main {
 .bar-q .bar-fill { background: linear-gradient(90deg, #0ea5e9, var(--q)); box-shadow: 0 0 10px rgba(56,189,248,.55); }
 .bar-p .bar-fill { background: linear-gradient(90deg, #10b981, var(--p)); box-shadow: 0 0 10px rgba(52,211,153,.55); }
 .bar-e .bar-fill { background: linear-gradient(90deg, #f97316, var(--e)); box-shadow: 0 0 10px rgba(251,146,60,.55); }
+.bar-z .bar-fill { background: linear-gradient(90deg, #7c3aed, var(--z)); box-shadow: 0 0 10px rgba(167,139,250,.55); }
 
 .total-cell { text-align: right; }
 .total-num {

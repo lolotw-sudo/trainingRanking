@@ -99,10 +99,21 @@ const UI = (() => {
         : ''
     ].join('');
 
+    // 第三條跟能力三角同一個維度：有刷題資料就畫刷題均分，
+    // 讀不到才退回終極考驗（那個要期末考完才有分數，整季都是 0）
+    const hasQuiz = r.quizTimes != null;
+    const tracks = li.querySelectorAll('.bar-track');
+    tracks[2].className = 'bar-track ' + (hasQuiz ? 'bar-z' : 'bar-e');
+
+    tracks[0].title = `練習賽 ${r.quality}`;
+    tracks[1].title = `活躍度 ${r.performance}`;
+    tracks[2].title = hasQuiz ? `刷題均分 ${r.quizAvg}（練習 ${r.quizTimes} 次）`
+                              : `終極考驗 ${r.exam}`;
+
     const fills = li.querySelectorAll('.bar-fill');
     fills[0].style.width = r.quality + '%';
     fills[1].style.width = r.performance + '%';
-    fills[2].style.width = r.exam + '%';
+    fills[2].style.width = (hasQuiz ? r.quizAvg : r.exam) + '%';
 
     FX.countTo(li.querySelector('.total-num'), r.total, 1);
     li.querySelector('.delta-cell').innerHTML = deltaChip(r);

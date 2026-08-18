@@ -62,11 +62,14 @@
       ...list.map(r => `${r.seat || ''}\t${r.name}\t${r.grade.toFixed(1)}`)].join('\n');
   }
 
+  /** 排位榜三條進度條的圖例；第三條跟能力三角同一個維度 */
   function renderWeightMini() {
+    const hasQuiz = S().students.some(s => s.quizTimes != null);
     $('#weightMini').innerHTML = `
       <span><i class="dot dot-q"></i>練習賽</span>
       <span><i class="dot dot-p"></i>活躍度</span>
-      <span><i class="dot dot-e"></i>終極考驗</span>`;
+      ${hasQuiz ? `<span><i class="dot dot-z"></i>刷題均分</span>`
+                : `<span><i class="dot dot-e"></i>終極考驗</span>`}`;
   }
 
   /* ── 同步試算表 ───────────────────────────────────── */
