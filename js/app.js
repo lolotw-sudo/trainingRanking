@@ -116,15 +116,18 @@
         console.warn('[sync] 刷題紀錄', e);
       }
 
-      // 回合紀錄：試算表讀得到就以它為準（換裝置、換電腦都看得到同一份），
-      // 讀不到才沿用這台瀏覽器既有的，不會把舊紀錄清掉。
+      // 回合紀錄：試算表是唯一真相，讀得到就完全以它為準 —— 包含「被清空」也算數，
+      // 老師把回合刪掉重來時，本機要跟著清掉，不然這台會一直顯示已經刪掉的回合。
+      // 只有分頁不存在（回 null）或連線失敗時，才沿用這台瀏覽器既有的。
       let history = st.history;
       try {
         const snapTab = (window.ARENA_CONFIG || {}).snapshotSheet || '回合紀錄';
         const remote = await Sheet.fetchSnapshots(st.sheetId, snapTab, students);
-        if (remote.length) {
+        if (remote) {
           history = remote;
-          note += `<br>📌 回合紀錄 ${remote.length} 個回合已從試算表讀入。`;
+          note += remote.length
+            ? `<br>📌 回合紀錄 ${remote.length} 個回合已從試算表讀入。`
+            : `<br>📌 「${esc(snapTab)}」分頁目前沒有任何回合，名次變化會顯示 NEW。`;
         }
       } catch (e) {
         console.warn('[sync] 回合紀錄', e);

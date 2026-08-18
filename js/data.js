@@ -581,14 +581,20 @@ const Sheet = (() => {
    * 學員 id 是網頁依姓名即時算出來的，不寫進試算表；讀回來時用姓名／座號對回目前名單，
    * 這樣試算表插入、搬動列，或之後改了 id 算法，舊回合都還掛得回去。
    *
-   * @returns {Array} [{ t, label, ranks:{id:rank}, totals:{id:number}, champion }]，依回合由舊到新
+   * 回 null 與回 [] 是兩件事，呼叫端要分開處理：
+   *   null —— 分頁根本不存在（還沒存過任何回合）→ 沿用瀏覽器本機既有的
+   *   []   —— 分頁在，但裡面被清空了（老師把回合刪掉重來）→ 本機也要跟著清掉
+   *
+   * @returns {?Array} [{ t, label, ranks:{id:rank}, totals:{id:number}, champion }]，依回合由舊到新
    */
   async function fetchSnapshots(rawId, sheetName, students) {
     const id = parseId(rawId);
     if (!id) throw new Error('無法辨識試算表連結');
 
     const rows = await fetchRows(id, sheetName);
-    if (rows.length < 2 || !rows[0].some(h => h.includes('名次'))) return [];
+    // 分頁不存在時 gviz 會退回第一個分頁，認表頭才分得出來
+    if (!rows.length || !rows[0].some(h => h.includes('名次'))) return null;
+    if (rows.length < 2) return [];
 
     const idx = mapWith(rows[0], SNAP_ALIASES);
     const { byName, bySeat } = indexStudents(students);
