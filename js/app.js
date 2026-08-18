@@ -116,7 +116,21 @@
         console.warn('[sync] 刷題紀錄', e);
       }
 
-      Store.set({ students, lastSync: Date.now() });
+      // 回合紀錄：試算表讀得到就以它為準（換裝置、換電腦都看得到同一份），
+      // 讀不到才沿用這台瀏覽器既有的，不會把舊紀錄清掉。
+      let history = st.history;
+      try {
+        const snapTab = (window.ARENA_CONFIG || {}).snapshotSheet || '回合紀錄';
+        const remote = await Sheet.fetchSnapshots(st.sheetId, snapTab, students);
+        if (remote.length) {
+          history = remote;
+          note += `<br>📌 回合紀錄 ${remote.length} 個回合已從試算表讀入。`;
+        }
+      } catch (e) {
+        console.warn('[sync] 回合紀錄', e);
+      }
+
+      Store.set({ students, history, lastSync: Date.now() });
       refresh();
       Log.invalidate();
       setSyncStatus(`已同步 ${timeStr(Date.now())}`, 'sync-ok');
@@ -154,22 +168,64 @@
 
   /* ── 回合存檔 ─────────────────────────────────────── */
 
-  function snapshot() {
+  let snapping = false;
+
+  /**
+   * 存檔回合：把全班當下的名次寫進試算表的「回合紀錄」分頁。
+   *
+   * 以前只存在 localStorage，換一台裝置就看不到、清快取就整季消失；
+   * 學員手機上永遠是空的，所以他們看到的名次變化一直是 NEW。
+   * 沒設定後端網址時才退回只存本機，並在提示裡講明白。
+   */
+  async function snapshot() {
     if (!rows.length) { FX.toast('沒有資料可以存檔', 'err'); return; }
+    if (snapping) return;
+
+    // 回合是全班共用的，學員手癢按一下會把所有人的「本回合變化」洗掉
+    if (lockEnabled() && !unlocked) {
+      FX.toast('存檔回合是老師的動作，請先到「設定」解鎖', 'err');
+      switchView('settings');
+      return;
+    }
 
     const st = S();
+    const label = `第 ${st.history.length + 1} 回合 · ${new Date().toLocaleDateString('zh-TW')}`;
     const snap = {
-      t: Date.now(),
-      label: `第 ${st.history.length + 1} 回合 · ${new Date().toLocaleDateString('zh-TW')}`,
+      t: Date.now(), label,
       ranks:  Object.fromEntries(rows.map(r => [r.id, r.rank])),
       totals: Object.fromEntries(rows.map(r => [r.id, r.total])),
       champion: rows[0].id
     };
 
-    st.history.push(snap);
-    Store.save();
-    refresh();
-    FX.toast(`📌 ${snap.label} 已存檔`, 'ok');
+    const keepLocally = msg => {
+      st.history.push(snap);
+      Store.save();
+      refresh();
+      FX.toast(msg, 'ok');
+    };
+
+    if (!(window.ARENA_CONFIG || {}).quizApi) {
+      keepLocally(`📌 ${label} 已存檔（沒設定後端網址，只存在這台裝置）`);
+      return;
+    }
+
+    snapping = true;
+    $('#btnSnapshot').disabled = true;
+    try {
+      // snapId 讓後端擋掉重試造成的重複寫入（Apps Script 約每四次會回一次 404）
+      await Quiz.call('snapshot', null, {
+        label,
+        snapId: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        rows: rows.map(r => ({ seat: r.seat, name: r.name, rank: r.rank, total: r.total }))
+      });
+      keepLocally(`📌 ${label} 已存進試算表，全班都看得到`);
+    } catch (e) {
+      console.error('[snapshot]', e);
+      FX.toast(`存檔失敗，沒有寫進試算表：${e.message}`, 'err');
+    } finally {
+      snapping = false;
+      $('#btnSnapshot').disabled = false;
+    }
   }
 
   /* ── 分頁切換 ─────────────────────────────────────── */

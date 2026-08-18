@@ -272,6 +272,18 @@ const Sheet = (() => {
     exam:        ['考試', '測驗', '終極', 'exam', 'test', 'score']
   };
 
+  /** 「回合紀錄」分頁（一列一位學員在某回合的名次）的欄位別名 */
+  const SNAP_ALIASES = {
+    time:     ['時間'],
+    round:    ['回合'],
+    label:    ['標籤'],
+    seat:     ['座號'],
+    name:     ['姓名'],
+    rank:     ['名次'],
+    total:    ['累積總分'],
+    champion: ['冠軍']
+  };
+
   /** 「表現紀錄」分頁（一列一筆加減分）的欄位別名 */
   const LOG_ALIASES = {
     date:    ['日期', 'date'],
@@ -560,6 +572,50 @@ const Sheet = (() => {
     return students.filter(s => s.quizTimes > 0).length;
   }
 
+  /**
+   * 抓「回合紀錄」分頁，還原成網頁用的 history 陣列。
+   *
+   * 這是回合紀錄的唯一真相 —— 以前存在瀏覽器的 localStorage，換一台裝置就看不到、
+   * 清快取就整季消失。分頁不存在時 gviz 會退回第一個分頁，所以一樣先認表頭。
+   *
+   * 學員 id 是網頁依姓名即時算出來的，不寫進試算表；讀回來時用姓名／座號對回目前名單，
+   * 這樣試算表插入、搬動列，或之後改了 id 算法，舊回合都還掛得回去。
+   *
+   * @returns {Array} [{ t, label, ranks:{id:rank}, totals:{id:number}, champion }]，依回合由舊到新
+   */
+  async function fetchSnapshots(rawId, sheetName, students) {
+    const id = parseId(rawId);
+    if (!id) throw new Error('無法辨識試算表連結');
+
+    const rows = await fetchRows(id, sheetName);
+    if (rows.length < 2 || !rows[0].some(h => h.includes('名次'))) return [];
+
+    const idx = mapWith(rows[0], SNAP_ALIASES);
+    const { byName, bySeat } = indexStudents(students);
+    const pick = (r, i) => (i >= 0 ? (r[i] ?? '').trim() : '');
+    const rounds = new Map();
+
+    rows.slice(1).forEach(r => {
+      const no = parseInt(pick(r, idx.round), 10);
+      const rank = parseInt(pick(r, idx.rank), 10);
+      const s = matchStudent(byName, bySeat, pick(r, idx.name), pick(r, idx.seat));
+      if (!isFinite(no) || !isFinite(rank) || !s) return;   // 已離班的人就跳過那一列
+
+      if (!rounds.has(no)) rounds.set(no, {
+        t: Date.parse(pick(r, idx.time).replace(' ', 'T')) || Date.now(),
+        label: pick(r, idx.label) || `第 ${no} 回合`,
+        ranks: {}, totals: {}, champion: null
+      });
+
+      const h = rounds.get(no);
+      h.ranks[s.id] = rank;
+      h.totals[s.id] = parseFloat(pick(r, idx.total)) || 0;
+      if (pick(r, idx.champion)) h.champion = s.id;
+    });
+
+    return [...rounds.keys()].sort((a, b) => a - b).map(no => rounds.get(no));
+  }
+
   const TEMPLATE_HEADER = '座號\t姓名\t組別\t頭像\t作業1\t作業2\t作業3\t考試成績';
   const LOG_TEMPLATE_HEADER = '日期\t堂次\t學員\t加減分\t事由\t老師';
 
@@ -585,6 +641,6 @@ const Sheet = (() => {
   }
 
   return { fetchStudents, fetchPerfLog, applyPerfLog, fetchQuizLog, applyQuizLog,
-           parseId, parseCSV, rowsToStudents,
+           fetchSnapshots, parseId, parseCSV, rowsToStudents,
            fetchRows, demoStudents, TEMPLATE_HEADER, LOG_TEMPLATE_HEADER };
 })();

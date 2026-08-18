@@ -16,8 +16,10 @@
  *   6. 把網址填進網站 index.html 的 ARENA_CONFIG.quizApi
  *
  * 【這支後端負責什麼】
- *   只負責「交卷」：對答案、寫紀錄、加互動成績分。
- *   題目與剩餘次數由網頁直接讀試算表（gviz），不經過這裡 ——
+ *   兩個寫入動作：
+ *     submit   —— 交卷：對答案、寫刷題紀錄、加互動成績分
+ *     snapshot —— 老師按「存檔回合」：把全班當下的名次寫進「回合紀錄」分頁
+ *   讀取（題目、剩餘次數、回合紀錄）都由網頁直接讀試算表（gviz），不經過這裡 ——
  *   Apps Script 網頁應用程式約每四次會有一次回 404，用得越少越穩。
  *
  * 【為什麼答案不會外流】
@@ -28,6 +30,7 @@
 const CONFIG = {
   BANK_TAB:  '題庫',        // 題庫分頁名
   LOG_TAB:   '刷題紀錄',     // 每次交卷寫一列（本檔自動建立）
+  SNAP_TAB:  '回合紀錄',     // 老師按「存檔回合」時寫入（本檔自動建立）
   PERF_TAB:  '表現紀錄',     // 互動成績的加減分流水帳（沿用現有分頁）
   ROSTER_TAB: '',           // 學員總表分頁名；留空＝第一個分頁
 
@@ -48,6 +51,7 @@ const CONFIG = {
 const LOG_HEADER  = ['時間', '日期', '座號', '姓名', '科目', '得分', '答對', '題數', '用時(秒)', '今日第幾次', '回合編號'];
 const BANK_HEADER = ['科目', '題號', '主題', '題目', '選項A', '選項B', '選項C', '選項D', '正確答案', '講義出處'];
 const PERF_HEADER = ['日期', '堂次', '學員', '加減分', '事由', '老師'];
+const SNAP_HEADER = ['時間', '回合', '標籤', '座號', '姓名', '名次', '累積總分', '冠軍', '存檔編號'];
 
 
 /* ── 對外入口 ───────────────────────────────────────── */
@@ -77,8 +81,9 @@ function doGet(e) {
 function doPost(e) {
   try {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    if (body.action !== 'submit') return json({ ok: false, error: '不認得的 action' });
-    return json(submitRound(body));
+    if (body.action === 'submit')   return json(submitRound(body));
+    if (body.action === 'snapshot') return json(saveSnapshot(body));
+    return json({ ok: false, error: '不認得的 action' });
   } catch (err) {
     return json({ ok: false, error: String(err && err.message || err) });
   }
@@ -402,6 +407,70 @@ function shuffle(a) {
 const uniq = arr => arr.filter((v, i) => arr.indexOf(v) === i);
 
 
+/* ── 存檔回合 ───────────────────────────────────────── */
+
+/**
+ * 老師按「存檔回合」時，把全班當下的名次整批寫進「回合紀錄」分頁，一位學員一列。
+ *
+ * 為什麼要有 snapId：網頁那端連線失敗會自動重試（Apps Script 約每四次會回一次
+ * 404），沒有防重複的話同一次存檔會被寫成兩個回合。所以網頁每次按下按鈕產生一個
+ * snapId，這裡先查有沒有寫過，寫過就直接回傳原本的回合編號、不再寫第二次。
+ *
+ * body = { action, label, snapId, rows: [{ seat, name, rank, total }] }
+ */
+function saveSnapshot(body) {
+  const rows = Array.isArray(body.rows) ? body.rows : [];
+  if (!rows.length) return { ok: false, error: '沒有可存檔的名次' };
+
+  const snapId = String(body.snapId || '').trim();
+  const label = String(body.label || '').trim();
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sh = tabOf(ss, CONFIG.SNAP_TAB, SNAP_HEADER);
+
+    const done = snapId && roundOfSnap(sh, snapId);
+    if (done) return { ok: true, round: done, label, rows: rows.length, duplicated: true };
+
+    const round = nextRound(sh);
+    const now = Utilities.formatDate(new Date(), CONFIG.TZ, 'yyyy-MM-dd HH:mm:ss');
+
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, SNAP_HEADER.length).setValues(
+      rows.map(r => [
+        now, round, label,
+        String(r.seat || ''), String(r.name || ''),
+        Number(r.rank) || 0, Number(r.total) || 0,
+        Number(r.rank) === 1 ? '✔' : '',
+        snapId,
+      ])
+    );
+
+    return { ok: true, round, label, rows: rows.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 下一個回合編號＝現有最大值 + 1；表還是空的就從 1 開始 */
+function nextRound(sh) {
+  const last = sh.getLastRow();
+  if (last < 2) return 1;
+  const col = sh.getRange(2, 2, last - 1, 1).getValues();
+  return Math.max(0, ...col.map(r => Number(r[0]) || 0)) + 1;
+}
+
+/** 這個 snapId 寫過了嗎？寫過就回它的回合編號，沒寫過回 0 */
+function roundOfSnap(sh, snapId) {
+  const last = sh.getLastRow();
+  if (last < 2) return 0;
+  const vals = sh.getRange(2, 2, last - 1, SNAP_HEADER.length - 1).getValues();  // 回合 ～ 存檔編號
+  const hit = vals.find(r => String(r[SNAP_HEADER.length - 2]).trim() === snapId);
+  return hit ? Number(hit[0]) || 0 : 0;
+}
+
+
 /* ── 設定與自我檢查 ─────────────────────────────────── */
 
 /** 部署前先執行這個：建好分頁並檢查設定 */
@@ -435,6 +504,10 @@ function setup() {
   } else {
     log.push(`✅ 「${CONFIG.LOG_TAB}」分頁就緒`);
   }
+
+  const snap = ss.getSheetByName(CONFIG.SNAP_TAB);
+  log.push(snap ? `✅ 找到「${CONFIG.SNAP_TAB}」分頁，存檔回合會寫進這裡`
+                : `⚠️ 找不到「${CONFIG.SNAP_TAB}」分頁，第一次存檔回合時會自動建立`);
 
   const perf = ss.getSheetByName(CONFIG.PERF_TAB);
   log.push(perf ? `✅ 找到「${CONFIG.PERF_TAB}」分頁，互動成績會寫進這裡`
