@@ -452,14 +452,10 @@ const Sheet = (() => {
   }
 
   /**
-   * 把流水帳併進學員資料：累計加減分，再換算成 0–100 的表現分數。
-   * 換算採「目標法」——累計 ÷ 滿分目標 × 100，超過封頂 100，
-   * 這樣分數只會往上爬，不會因為別人加分而倒退。
-   * @returns {{matched:number, unmatched:string[]}} 對不到姓名的要回報，否則那些分數會默默消失
+   * 兩張對照表：姓名一張、座號一張。各種紀錄分頁的「學員」欄通常長成「01 黃相奎」，
+   * 兩邊都試，其中一邊對上就算數 —— 座號改了或姓名改了都還有另一條路。
    */
-  function applyPerfLog(students, log, target) {
-    // 兩張對照表：姓名一張、座號一張。流水帳的「學員」欄通常長成「01 黃相奎」，
-    // 兩邊都試，其中一邊對上就算數 —— 座號改了或姓名改了都還有另一條路。
+  function indexStudents(students) {
     const byName = new Map();
     const bySeat = new Map();
 
@@ -472,17 +468,36 @@ const Sheet = (() => {
       if (seat && !bySeat.has(seat)) bySeat.set(seat, s);
     });
 
+    return { byName, bySeat };
+  }
+
+  /** @param {string} [seat] 紀錄分頁自己有座號欄時傳進來，多一條比對路 */
+  function matchStudent(byName, bySeat, label, seat) {
+    const raw = String(label ?? '').replace(/　/g, ' ').trim();
+    const p = splitLabel(raw);
+    return byName.get(raw)
+        || (p.name && byName.get(p.name))
+        || (p.seat && bySeat.get(p.seat))
+        || (seatKey(seat) && bySeat.get(seatKey(seat)))
+        || null;
+  }
+
+  /**
+   * 把流水帳併進學員資料：累計加減分，再換算成 0–100 的表現分數。
+   * 換算採「目標法」——累計 ÷ 滿分目標 × 100，超過封頂 100，
+   * 這樣分數只會往上爬，不會因為別人加分而倒退。
+   * @returns {{matched:number, unmatched:string[]}} 對不到姓名的要回報，否則那些分數會默默消失
+   */
+  function applyPerfLog(students, log, target) {
+    const { byName, bySeat } = indexStudents(students);
+
     const unmatched = new Set();
     let matched = 0;
 
     students.forEach(s => { s.perfLog = []; s.perfRaw = 0; });
 
     log.forEach(e => {
-      const raw = String(e.name).replace(/　/g, ' ').trim();
-      const p = splitLabel(raw);
-      const s = byName.get(raw)
-             || (p.name && byName.get(p.name))
-             || (p.seat && bySeat.get(p.seat));
+      const s = matchStudent(byName, bySeat, e.name);
       if (!s) { unmatched.add(e.name); return; }
       s.perfLog.push(e);
       s.perfRaw += e.delta;
@@ -496,6 +511,53 @@ const Sheet = (() => {
     });
 
     return { matched, unmatched: [...unmatched] };
+  }
+
+  /**
+   * 抓「刷題紀錄」分頁：一列一次交卷，只取座號／姓名／得分三欄。
+   *
+   * 分頁不存在時 gviz 會默默退回第一個分頁（也就是學員總表），
+   * 那時 C/D/F 會撈到組別、頭像、作業2 這種完全無關的值 ——
+   * 所以先認表頭有沒有「得分」，不對就當作沒有這個分頁，回空陣列。
+   */
+  async function fetchQuizLog(rawId, sheetName) {
+    const id = parseId(rawId);
+    if (!id) throw new Error('無法辨識試算表連結');
+
+    const rows = await fetchRows(id, sheetName, 'select C,D,F');   // 座號 / 姓名 / 得分
+    if (rows.length < 2 || !rows[0].some(h => h.includes('得分'))) return [];
+
+    return rows.slice(1).map(r => {
+      const name = (r[1] ?? '').trim();
+      const score = parseFloat(String(r[2] ?? '').replace(/[^\d.\-]/g, ''));
+      if (!name || !isFinite(score)) return null;
+      return { seat: (r[0] ?? '').trim(), name, score: Math.max(0, Math.min(100, score)) };
+    }).filter(Boolean);
+  }
+
+  /**
+   * 把刷題紀錄併進學員資料：練了幾次、平均幾分、最佳幾分。
+   * 平均得分就是能力三角第三軸的值 —— 練習次數不用，那個已經
+   * 透過「每練一次 +0.5」計進活躍度了，再畫一次等於同一件事畫兩遍。
+   * @returns {number} 有練過的人數
+   */
+  function applyQuizLog(students, log) {
+    const { byName, bySeat } = indexStudents(students);
+    const scores = new Map(students.map(s => [s, []]));
+
+    log.forEach(e => {
+      const s = matchStudent(byName, bySeat, e.name, e.seat);
+      if (s) scores.get(s).push(e.score);
+    });
+
+    students.forEach(s => {
+      const list = scores.get(s);
+      s.quizTimes = list.length;             // null/undefined 代表這次沒讀到刷題資料
+      s.quizAvg   = avg(list);
+      s.quizBest  = list.length ? Math.max(...list) : 0;
+    });
+
+    return students.filter(s => s.quizTimes > 0).length;
   }
 
   const TEMPLATE_HEADER = '座號\t姓名\t組別\t頭像\t作業1\t作業2\t作業3\t考試成績';
@@ -522,6 +584,7 @@ const Sheet = (() => {
     });
   }
 
-  return { fetchStudents, fetchPerfLog, applyPerfLog, parseId, parseCSV, rowsToStudents,
+  return { fetchStudents, fetchPerfLog, applyPerfLog, fetchQuizLog, applyQuizLog,
+           parseId, parseCSV, rowsToStudents,
            fetchRows, demoStudents, TEMPLATE_HEADER, LOG_TEMPLATE_HEADER };
 })();

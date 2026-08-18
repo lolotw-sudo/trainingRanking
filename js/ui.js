@@ -241,6 +241,7 @@ const UI = (() => {
       <div class="pc-section">
         <h4>能力三角</h4>
         <div class="radar-wrap"><svg id="pcRadar" width="240" height="215" viewBox="0 0 240 215"></svg></div>
+        ${quizNoteHTML(r)}
       </div>
 
       <div class="pc-section">
@@ -291,6 +292,18 @@ const UI = (() => {
     </div>`;
   }
 
+  /** 能力三角第三軸的來源：刷題練了幾次、平均與最佳幾分 */
+  function quizNoteHTML(r) {
+    if (r.quizTimes == null) return '';       // 這次同步沒讀到刷題紀錄，雷達圖畫的是終極考驗
+    if (!r.quizTimes)
+      return `<div class="pc-subrow"><span class="pc-chip is-empty">刷題練習 還沒練過</span></div>`;
+    return `<div class="pc-subrow">
+      <span class="pc-chip">練習 <b>${r.quizTimes}</b> 次</span>
+      <span class="pc-chip">平均 <b>${r.quizAvg}</b> 分</span>
+      <span class="pc-chip is-empty">最佳 ${r.quizBest} 分</span>
+    </div>`;
+  }
+
   /** 加分明細時間軸——排行榜的說服力來源：分數是怎麼來的 */
   function perfLogHTML(r) {
     if (!r.perfLog || !r.perfLog.length) return '';
@@ -321,10 +334,14 @@ const UI = (() => {
   function drawRadar(svg, r) {
     if (!svg) return;
     const cx = 120, cy = 112, R = 82;
+    // 第三軸優先畫刷題練習：終極考驗要考完試才有分數，整個學期都是 0，
+    // 三角形會塌成一條線。讀不到刷題紀錄時才退回原本的終極考驗。
     const axes = [
       { label: '練習賽', value: r.quality,     color: 'var(--q)' },
       { label: '活躍度', value: r.performance, color: 'var(--p)' },
-      { label: '終極考驗', value: r.exam,        color: 'var(--e)' }
+      r.quizTimes == null
+        ? { label: '終極考驗',  value: r.exam,    color: 'var(--e)' }
+        : { label: '刷題練習',  value: r.quizAvg, color: 'var(--z)' }
     ];
 
     const pt = (i, ratio) => {

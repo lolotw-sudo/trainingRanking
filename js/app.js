@@ -103,6 +103,19 @@
         }
       }
 
+      // 刷題紀錄同樣是選配分頁：讀得到才把能力三角的第三軸換成刷題練習，
+      // 讀不到就整段跳過，雷達圖自動退回顯示終極考驗。
+      try {
+        const quizTab = (window.ARENA_CONFIG || {}).quizLogSheet || '刷題紀錄';
+        const quizLog = await Sheet.fetchQuizLog(st.sheetId, quizTab);
+        if (quizLog.length) {
+          const practiced = Sheet.applyQuizLog(students, quizLog);
+          note += `<br>🎯 刷題紀錄 ${quizLog.length} 筆已計入能力三角（${practiced} 人練過）。`;
+        }
+      } catch (e) {
+        console.warn('[sync] 刷題紀錄', e);
+      }
+
       Store.set({ students, lastSync: Date.now() });
       refresh();
       Log.invalidate();
