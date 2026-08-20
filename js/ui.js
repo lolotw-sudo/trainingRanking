@@ -262,7 +262,9 @@ const UI = (() => {
           ${hwDetailHTML(r)}
           ${dimRow('活躍度', 'p', r.performance)}
           ${perfNoteHTML(r)}
-          ${dimRow('終極考驗', 'e', r.exam)}
+          ${r.quizTimes == null            /* 同能力三角第三軸：見 drawRadar */
+              ? dimRow('終極考驗', 'e', r.exam)
+              : dimRow('刷題均分', 'z', r.quizAvg)}
         </div>
       </div>
 

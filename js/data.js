@@ -156,7 +156,14 @@ const Scoring = (() => {
     if (!rows.length) return;
 
     const best = k => Math.max(...rows.map(r => r[k]));
-    const topQ = best('quality'), topP = best('performance'), topE = best('exam');
+    const topQ = best('quality'), topP = best('performance');
+
+    // 第三個維度跟能力三角、排位榜、三項成績一致：有刷題資料就用刷題均分，
+    // 讀不到才退回終極考驗。終極考驗要考完試才有分數，整季都是 0，
+    // 拿它算「三維均衡」永遠不可能達成（練習賽 90 幾 − 0）。
+    const hasQuiz = rows.some(r => r.quizTimes != null);
+    const dim3    = r => hasQuiz ? r.quizAvg : r.exam;
+    const top3    = Math.max(...rows.map(dim3));
 
     // 進步之星：與上一回合相比名次進步最多的人（至少進步 1 名）
     let starGain = 0;
@@ -167,13 +174,16 @@ const Scoring = (() => {
 
     rows.forEach(r => {
       const b = [];
+      const d3 = dim3(r);
       if (r.rank === 1 && prev && prev.champion === r.id) b.push({ icon: '🔥', name: '連霸', desc: '連續兩回合排名第一' });
       if (r.quality === topQ && topQ > 0)     b.push({ icon: '✨', name: '作業達人', desc: '全班練習賽成績最高' });
       if (r.performance === topP && topP > 0) b.push({ icon: '🙋', name: '課堂之星', desc: '全班活躍度最高' });
-      if (r.exam === topE && topE > 0)        b.push({ icon: '🎯', name: '考神',     desc: '全班終極考驗最高' });
+      if (d3 === top3 && top3 > 0)
+        b.push(hasQuiz ? { icon: '🎯', name: '刷題王', desc: '全班刷題均分最高' }
+                       : { icon: '🎯', name: '考神',   desc: '全班終極考驗最高' });
       if (starGain > 0 && r.delta === starGain) b.push({ icon: '🚀', name: '進步之星', desc: `名次進步 ${starGain} 名，全班最多` });
-      if ([r.quality, r.performance, r.exam].some(v => v >= 100)) b.push({ icon: '💯', name: '滿分王', desc: '單項拿到滿分' });
-      if (Math.max(r.quality, r.performance, r.exam) - Math.min(r.quality, r.performance, r.exam) <= 5)
+      if ([r.quality, r.performance, d3].some(v => v >= 100)) b.push({ icon: '💯', name: '滿分王', desc: '單項拿到滿分' });
+      if (Math.max(r.quality, r.performance, d3) - Math.min(r.quality, r.performance, d3) <= 5)
         b.push({ icon: '⚖️', name: '三維均衡', desc: '三項成績差距在 5 分以內' });
       if (r.rank === 1) b.push({ icon: '⚡', name: '積分王', desc: '全班累積總分最高' });
       r.badges = b;
