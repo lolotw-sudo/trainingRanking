@@ -79,6 +79,14 @@ const Log = (() => {
     return m ? `${+m[1]}/${+m[2]}` : '';
   };
 
+  /** 「8/12（三）」→ 812，同一週裡按日期由舊到新；沒填日期的排到最後 */
+  const dayNo = s => {
+    const k = dayKey(s);
+    if (!k) return 9999;
+    const [m, d] = k.split('/').map(Number);
+    return m * 100 + d;
+  };
+
   /**
    * 還沒上到的那一天先不顯示 —— 課程表可以一次把整期都填好，
    * 日誌只會長到今天為止。日期沒填的照樣顯示（寧可多顯示，不要漏）。
@@ -181,9 +189,10 @@ const Log = (() => {
 
     reports.forEach(rep => { bucket(rep.week).report = rep; });
 
+    // 週和日都由舊到新：第1週在最上面，一天一天往下讀，跟課程表同一個方向
     return [...weeks.values()]
-      .sort((a, b) => weekNo(b.week) - weekNo(a.week))   // 最新的一週排最上面
-      .map(w => ({ ...w, days: [...w.days.values()] }));
+      .sort((a, b) => weekNo(a.week) - weekNo(b.week))
+      .map(w => ({ ...w, days: [...w.days.values()].sort((a, b) => dayNo(a.date) - dayNo(b.date)) }));
   }
 
   /* ── 畫面 ─────────────────────────────────────────── */
