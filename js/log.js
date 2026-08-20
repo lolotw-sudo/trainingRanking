@@ -27,6 +27,9 @@ const Log = (() => {
   let cache = null;      // 讀成功就留著，切分頁不重讀
   let loading = false;
 
+  /** 一天先只排一列（桌面剛好滿一列），其餘收進「再看 N 張」 */
+  const MAX_SHOTS = 12;
+
   const LESSON_ALIASES = {
     week:    ['週次', '週別', '周次', '週'],
     date:    ['日期', 'date'],
@@ -76,6 +79,20 @@ const Log = (() => {
     return m ? `${+m[1]}/${+m[2]}` : '';
   };
 
+  /**
+   * 還沒上到的那一天先不顯示 —— 課程表可以一次把整期都填好，
+   * 日誌只會長到今天為止。日期沒填的照樣顯示（寧可多顯示，不要漏）。
+   * ponytail: 課程表不寫年份，這裡一律當今年；跨年的班要改成從試算表帶年份進來。
+   */
+  const isFuture = date => {
+    const k = dayKey(date);
+    if (!k) return false;
+    const [m, d] = k.split('/').map(Number);
+    const now = new Date();
+    return new Date(now.getFullYear(), m - 1, d) >
+           new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  };
+
   /* ── 讀分頁 ───────────────────────────────────────── */
 
   /**
@@ -101,7 +118,7 @@ const Log = (() => {
       topic:   val(r, tab.idx.topic),
       teacher: val(r, tab.idx.teacher),
       note:    val(r, tab.idx.note)
-    })).filter(l => l.topic);
+    })).filter(l => l.topic && !isFuture(l.date));
   }
 
   async function fetchReports(id) {
@@ -226,15 +243,27 @@ const Log = (() => {
     if (!day.photos.length) return '';
 
     const thumb = id => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
-    const shots = day.photos.map((p, i) => `
+    const shot = (p, i) => `
       <a class="lg-shot" href="https://drive.google.com/file/d/${esc(p.id)}/view"
          target="_blank" rel="noopener">
         <img loading="lazy" alt="${esc(day.date)} 課堂照片 ${i + 1}"
              src="https://lh3.googleusercontent.com/d/${esc(p.id)}=w1200"
              onerror="this.onerror=null;this.src='${thumb(p.id)}'">
-      </a>`).join('');
+      </a>`;
 
-    return `<div class="lg-shots">${shots}</div>`;
+    const grid = (list, from) =>
+      `<div class="lg-shots">${list.map((p, i) => shot(p, from + i)).join('')}</div>`;
+
+    const rest = day.photos.slice(MAX_SHOTS);
+    // 收在 <details> 裡的圖是 loading="lazy"，沒展開就不會去下載
+    return grid(day.photos.slice(0, MAX_SHOTS), 0) + (rest.length ? `
+      <details class="lg-more">
+        <summary>
+          <span class="lg-more-in">再看 ${rest.length} 張</span>
+          <span class="lg-more-out">收合</span>
+        </summary>
+        ${grid(rest, MAX_SHOTS)}
+      </details>` : '');
   }
 
   function renderDay(day) {

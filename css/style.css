@@ -1085,6 +1085,22 @@ main {
 .lg-shot:hover { transform: translateY(-2px); border-color: var(--cyan); }
 .lg-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+/* 照片多的那一天：先排一列，其餘收在 <details> 裡 */
+.lg-more { margin-top: 8px; }
+.lg-more > summary {
+  display: inline-block; cursor: pointer; list-style: none;
+  padding: 5px 13px; border-radius: 999px;
+  font-size: 12.5px; color: var(--text-faint);
+  background: rgba(255,255,255,.04); border: 1px solid var(--stroke);
+  transition: color .2s, border-color .2s;
+}
+.lg-more > summary::-webkit-details-marker { display: none; }
+.lg-more > summary:hover { color: var(--cyan); border-color: var(--cyan); }
+.lg-more > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.lg-more .lg-more-out,
+.lg-more[open] .lg-more-in { display: none; }
+.lg-more[open] .lg-more-out { display: inline; }
+
 .lg-lessons { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .lg-lesson { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; font-size: 13.5px; }
 .lg-lesson::before { content: '·'; color: var(--text-faint); }
