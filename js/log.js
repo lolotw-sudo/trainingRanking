@@ -316,6 +316,58 @@ const Log = (() => {
     body.innerHTML = weeks.map(renderWeek).join('');
   }
 
+  /* ── 滑過縮圖放大看 ───────────────────────────────── */
+
+  let zoom = null;
+
+  /**
+   * 滑鼠指到哪張，游標旁邊就浮一張大的（用的是同一個網址，瀏覽器已經有快取，不會再下載）。
+   * 事件掛在 #logBody 上而不是每張圖上 —— 重畫時 innerHTML 換掉，掛在圖上的就全沒了。
+   * 觸控裝置沒有 hover，整個不啟用。
+   */
+  function initZoom() {
+    const body = $('#logBody');
+    if (!body || zoom || !matchMedia('(hover: hover)').matches) return;
+
+    zoom = document.createElement('div');
+    zoom.className = 'lg-zoom';
+    zoom.innerHTML = '<img alt="">';
+    document.body.appendChild(zoom);
+    const big = zoom.querySelector('img');
+
+    // 預設放在游標右邊，靠近視窗邊緣就翻到另一邊，不讓它被切到
+    let at = { x: 0, y: 0 };
+    const place = (x, y) => {
+      at = { x, y };
+      const pad = 16;
+      const { width: w, height: h } = zoom.getBoundingClientRect();
+      const left = x + 20 + w + pad > innerWidth ? x - 20 - w : x + 20;
+      const top = Math.min(Math.max(pad, y - h / 2), innerHeight - h - pad);
+      zoom.style.transform = `translate(${Math.max(pad, left)}px, ${top}px)`;
+    };
+
+    // 換圖的瞬間高度還是上一張的，載好才知道真正多高 —— 重算一次才不會掉出畫面
+    big.addEventListener('load', () => place(at.x, at.y));
+    // 縮圖本來就載不出來的那幾張（Google 偶發），放大也是空的，不如不要浮出來
+    big.addEventListener('error', () => zoom.classList.remove('is-on'));
+
+    body.addEventListener('mouseover', e => {
+      const img = e.target.closest('.lg-shot img');
+      if (!img) return;
+      big.src = img.currentSrc || img.src;
+      zoom.classList.add('is-on');
+      place(e.clientX, e.clientY);
+    });
+
+    body.addEventListener('mouseout', e => {
+      if (e.target.closest('.lg-shot img')) zoom.classList.remove('is-on');
+    });
+
+    body.addEventListener('mousemove', e => {
+      if (zoom.classList.contains('is-on')) place(e.clientX, e.clientY);
+    });
+  }
+
   /* ── 對外 ─────────────────────────────────────────── */
 
   async function load(force = false) {
@@ -346,7 +398,7 @@ const Log = (() => {
   }
 
   /** 進到這個分頁才讀，不佔開場的同步 */
-  function onEnter() { load(); }
+  function onEnter() { initZoom(); load(); }
 
   /** 按「同步」時一起更新；正在看這一頁就當場重畫 */
   function invalidate() {

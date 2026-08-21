@@ -1101,6 +1101,22 @@ main {
 .lg-more[open] .lg-more-in { display: none; }
 .lg-more[open] .lg-more-out { display: inline; }
 
+/* 滑鼠指到縮圖，旁邊浮一張大的。觸控裝置沒有 hover，log.js 不會啟用 */
+.lg-zoom {
+  position: fixed; left: 0; top: 0; z-index: 50;
+  padding: 4px; border-radius: var(--r-sm);
+  background: var(--panel); border: 1px solid var(--stroke);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55);
+  opacity: 0; pointer-events: none;          /* 擋不到底下的連結 */
+  transition: opacity .12s var(--ease-out);
+}
+.lg-zoom.is-on { opacity: 1; }
+.lg-zoom img {
+  display: block; border-radius: 4px;
+  width: min(38vw, 460px); max-height: 62vh;
+  object-fit: contain; background: rgba(0, 0, 0, .3);
+}
+
 .lg-lessons { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
 .lg-lesson { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; font-size: 13.5px; }
 .lg-lesson::before { content: '·'; color: var(--text-faint); }
