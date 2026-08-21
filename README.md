@@ -401,6 +401,52 @@ Apps Script 的網頁應用程式有個老毛病：後端跑久一點，Google �
 
 ---
 
+## 流量統計（誰在看、看哪一頁）
+
+想知道排位榜有沒有人在看、學員最常停在哪個分頁，接上 **Firebase Analytics**（骨子裡就是
+Google Analytics 4）。設定完之後，五個分頁各自被開幾次、多少人、什麼時段來，
+在 Firebase 主控台就看得到。
+
+沒設定就完全不啟用 —— 網站每個功能照常跑，只是不會有數據。
+
+### 設定步驟（約五分鐘，只要做一次）
+
+1. 到 [console.firebase.google.com](https://console.firebase.google.com/) 用 Google 帳號登入，
+   按「建立專案」，名字隨便取（例：`training-ranking`）。
+2. 過程中會問「要不要啟用 Google Analytics」→ **一定要選「啟用」**，
+   流量統計就是靠這個；Analytics 帳戶選現有的或新建都可以。
+3. 專案建好後，在專案首頁按 **`</>`（網頁）** 圖示新增一個網頁應用程式，
+   暱稱隨便取，「同時設定 Firebase Hosting」**不用勾**（我們用 GitHub Pages）。
+4. 下一步它會給你一段 `const firebaseConfig = { ... }`，把大括號裡那七行
+   貼進 `index.html` 最下面 `ARENA_CONFIG` 的 `firebase:` 區塊，取代原本的空字串。
+5. 存檔、推上 GitHub。用手機或電腦打開網站，切幾個分頁。
+6. 回到 Firebase 主控台 →「Analytics → Realtime」，30 秒內就會看到剛才那幾筆。
+
+### 數據要去哪裡看
+
+| 想看什麼 | 去哪裡 |
+|---|---|
+| 現在有沒有人在線上 | Firebase 主控台 → Analytics → **Realtime**（即時） |
+| 這週有幾個人來、來幾次 | Firebase 主控台 → Analytics → Dashboard |
+| **哪個分頁最多人看** | Google Analytics（GA4）→ 報表 → 參與 → **網頁和畫面**，把維度切成「**網頁標題**」 |
+
+分頁名稱是用 `page_title` 送出去的，所以報表上會直接看到
+「個人榜 / 公會戰 / 賽季日誌 / 刷題 / 設定」這五個中文名字。
+
+> 完整報表在 GA4 那邊（Firebase 主控台的 Analytics 頁面右上角有連結可以跳過去）。
+> 另外 GA4 的非即時報表會延遲數小時到一天，當天看不到數字是正常的，不是壞掉。
+
+### 幾個常見疑問
+
+- **金鑰貼在 GitHub 上不要緊嗎？** 不要緊。Firebase 的網頁設定值本來就會出現在
+  任何訪客都看得到的網頁原始碼裡，它是「專案識別碼」不是密碼。
+- **本機直接雙擊 `index.html` 為什麼沒數據？** `file://` 開檔沒有網域，統計會自動跳過。
+  要在本機測就用 `python3 -m http.server` 這種方式開 `http://localhost`。
+- **學員手機開了廣告阻擋，統計會壞掉嗎？** 那台手機不會被統計到，但網站不受影響
+  （載入失敗會靜靜略過）。所以數字看趨勢就好，不用當成精準人數。
+
+---
+
 ## 鍵盤快捷鍵
 
 | 鍵 | 動作 |
@@ -436,6 +482,7 @@ js/ui.js            排行榜 / 頒獎台 / 公會 / 個人戰績卡渲染
 js/ceremony.js      頒獎典禮揭曉流程
 js/quiz.js          刷題練習：選名字、抽題、作答、交卷
 js/app.js           啟動與事件綁定
+js/analytics.js     流量統計（Firebase Analytics，沒設定就自動停用）
 sample-data.csv     學員總表的範本，可直接匯入 Google 試算表
 sample-perf-log.csv 表現紀錄（加減分流水帳）的範本
 apps-script/刷題後端.gs  刷題的 Apps Script 後端（題庫、計分、每日次數）

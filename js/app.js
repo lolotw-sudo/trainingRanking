@@ -236,12 +236,21 @@
 
   /* ── 分頁切換 ─────────────────────────────────────── */
 
+  const VIEW_NAMES = { solo: '個人榜', team: '公會戰', log: '賽季日誌', quiz: '刷題', settings: '設定' };
+
+  // 流量統計：每切一次分頁送一筆 page_view。沒設定 Firebase 時 Track 是空殼，什麼都不做。
+  const trackView = name => Track('page_view', {
+    page_title: VIEW_NAMES[name] || name,
+    page_location: location.href.split('#')[0] + '#' + name
+  });
+
   function switchView(name) {
     $$('.tab').forEach(t => t.classList.toggle('is-active', t.dataset.view === name));
     $$('.view').forEach(v => v.classList.toggle('is-active', v.id === `view-${name}`));
     if (name === 'settings') applyLockState();
     if (name === 'quiz') Quiz.onEnter();
     if (name === 'log') Log.onEnter();
+    trackView(name);
   }
 
   /* ── 設定鎖 ───────────────────────────────────────────
@@ -538,6 +547,7 @@
     Log.initWall();
     applyLockState();
     refresh();
+    trackView('solo');   // 開頁時畫面本來就停在個人榜，這筆要自己記
 
     const st = S();
     if (st.lastSync) setSyncStatus(`上次同步 ${timeStr(st.lastSync)}`, '');

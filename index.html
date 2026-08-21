@@ -6,7 +6,7 @@
 <title>線規新人排位賽2026</title>
 <meta name="description" content="線規新人排位賽2026：練習賽、活躍度、終極考驗依配分即時排位。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏆</text></svg>">
-<link rel="stylesheet" href="css/style.css?v=20260820b">
+<link rel="stylesheet" href="css/style.css?v=20260821">
 </head>
 <body>
 
@@ -306,6 +306,21 @@
     // 分頁由後端第一次存檔時自動建立，不用手動開。
     snapshotSheet: '回合紀錄',
 
+    // ── 流量統計（Firebase Analytics）──
+    // 到 Firebase 主控台開一個專案 →「新增應用程式 → 網頁」→ 把它給你的
+    // firebaseConfig 那幾行原封不動貼進來，就會開始記錄每個分頁被看幾次。
+    // 全部留空＝完全不啟用，網站照常跑。
+    // 這幾個值本來就會出現在網頁原始碼裡，不是密碼，公開到 GitHub 沒關係。
+    firebase: {
+      apiKey: 'AIzaSyC9w-nomTvq0e3D0QhRq_M_cqTKT_xRrBI',
+      authDomain: 'trainingranking.firebaseapp.com',
+      projectId: 'trainingranking',
+      storageBucket: 'trainingranking.firebasestorage.app',
+      messagingSenderId: '849216330482',
+      appId: '1:849216330482:web:c8708c6f1b42923cda4e6b',
+      measurementId: 'G-FQ9N2P1K78'     // G- 開頭那一個，沒有它就不會有流量數據
+    },
+
     // 「設定」分頁的密碼，存的是 SHA-256 雜湊而不是明碼。
     // 要換密碼：README 有算新雜湊的一行指令。設成空字串就完全不上鎖。
     //
@@ -316,12 +331,13 @@
   };
 </script>
 
-<script src="js/data.js?v=20260820b"></script>
-<script src="js/effects.js?v=20260820b"></script>
-<script src="js/ui.js?v=20260820b"></script>
-<script src="js/ceremony.js?v=20260820b"></script>
-<script src="js/quiz.js?v=20260820b"></script>
-<script src="js/log.js?v=20260820b"></script>
-<script src="js/app.js?v=20260820b"></script>
+<script src="js/analytics.js?v=20260821"></script>
+<script src="js/data.js?v=20260821"></script>
+<script src="js/effects.js?v=20260821"></script>
+<script src="js/ui.js?v=20260821"></script>
+<script src="js/ceremony.js?v=20260821"></script>
+<script src="js/quiz.js?v=20260821"></script>
+<script src="js/log.js?v=20260821"></script>
+<script src="js/app.js?v=20260821"></script>
 </body>
 </html>
