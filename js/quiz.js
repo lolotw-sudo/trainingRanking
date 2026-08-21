@@ -217,7 +217,12 @@ const Quiz = (() => {
     // Apps Script 實測約每四次會有一次 404（後端跑太久、重導網址過期），
     // 所以連線類的錯誤一律重試。交卷能安全重試是因為後端認 roundId，
     // 同一回合寫過就不會再寫第二次。
-    const RETRYABLE = /HTTP|Failed to fetch|NetworkError|load failed|沒有回傳資料/i;
+    //
+    // 「系統忙碌」也要重試：全班同時交卷時後端搶不到鎖就回這句
+    // （2026-08-21 實測 17 人同時打後端，慢的排到 60 秒、還有 3 個直接掉 404）。
+    // 它代表這份卷「根本還沒寫進去」，所以重試不但安全，而且是唯一的救法 ——
+    // 原本這句不在白名單裡，塞車的學員會直接吃到紅字。
+    const RETRYABLE = /HTTP|Failed to fetch|NetworkError|load failed|沒有回傳資料|系統忙碌/i;
     let lastErr;
 
     const TRIES = 4;
