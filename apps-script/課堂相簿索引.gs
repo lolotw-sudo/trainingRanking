@@ -5,9 +5,10 @@
  * 網站再從那個分頁把照片掛到賽季日誌對應的那一天。
  *
  * 【為什麼要繞這一圈，不讓網站直接讀 Drive】
- *   網站是純靜態的，沒有後端可以拿 Drive 憑證；而且「哪一天拍的」
+ *   網站是純靜態的，沒有後端可以拿 Drive 憑證；而且「哪一天、幾點拍的」
  *   要讀 EXIF 才知道 —— Drive 記的建立時間是「上傳時間」，
  *   照片常常隔好幾天才上傳，用上傳時間會全部掛到同一天。
+ *   拍攝時間還決定照片掛在哪一堂課底下（比對「課程表」分頁的時間欄）。
  *   所以由這支腳本定時把 EXIF 拍攝日整理進試算表，網站只讀試算表（穩且快）。
  *
  * 【設定步驟】
@@ -32,7 +33,7 @@ const ALBUM_CONFIG = {
   TZ: 'Asia/Taipei',
 };
 
-const ALBUM_HEADER = ['日期', '檔案ID', '檔名'];
+const ALBUM_HEADER = ['日期', '時間', '檔案ID', '檔名'];
 
 
 /** 把資料夾裡的照片索引寫進「課堂相簿」分頁。時間觸發器呼叫的就是這支。 */
@@ -53,8 +54,10 @@ function syncAlbum() {
 
 
 /**
- * 列出資料夾裡的圖片，回傳 [日期, 檔案ID, 檔名]。
- * 日期優先取 EXIF 拍攝時間，沒有 EXIF（例如截圖、掃描檔）才退回上傳時間。
+ * 列出資料夾裡的圖片，回傳 [日期, 時間, 檔案ID, 檔名]。
+ * 日期與時間優先取 EXIF 拍攝時間，沒有 EXIF（例如截圖、掃描檔）才退回上傳時間。
+ * 時間是網站用來判斷「這張是哪一堂課拍的」的依據，退回上傳時間時會不準，
+ * 所以那種情況只寫日期、時間留空 —— 寧可歸不到課，也不要歸錯課。
  */
 function listPhotos_() {
   const out = [];
@@ -72,13 +75,19 @@ function listPhotos_() {
     (res.files || []).forEach(f => {
       const meta = f.imageMediaMetadata || {};
       // EXIF 是 "2026:08:14 16:36:59"，createdTime 是 "2026-08-17T07:23:17.619Z"
-      const stamp = meta.time || String(f.createdTime).replace(/-/g, ':');
+      const exif = meta.time || '';
+      const stamp = exif || String(f.createdTime).replace(/-/g, ':');
       const parts = stamp.slice(0, 10).split(':');
       if (parts.length < 3) return;
 
       out.push({
         sort: stamp,
-        row: [Number(parts[1]) + '/' + Number(parts[2]), f.id, f.name],
+        row: [
+          Number(parts[1]) + '/' + Number(parts[2]),
+          exif ? exif.slice(11, 16) : '',   // "16:36"；沒 EXIF 就留空
+          f.id,
+          f.name,
+        ],
       });
     });
 

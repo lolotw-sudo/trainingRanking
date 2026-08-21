@@ -33,6 +33,7 @@ const Log = (() => {
   const LESSON_ALIASES = {
     week:    ['週次', '週別', '周次', '週'],
     date:    ['日期', 'date'],
+    time:    ['時間', 'time'],
     topic:   ['主題', '課程', '單元', '課程名稱'],
     teacher: ['講師', '老師', 'teacher'],
     note:    ['側記', '筆記', '花絮', '隨手記']
@@ -40,6 +41,7 @@ const Log = (() => {
 
   const ALBUM_ALIASES = {
     date:   ['日期'],
+    time:   ['時間', 'time'],
     fileId: ['檔案id', 'id', '檔案'],
     name:   ['檔名', '名稱']
   };
@@ -101,6 +103,34 @@ const Log = (() => {
            new Date(now.getFullYear(), now.getMonth(), now.getDate());
   };
 
+  /** 「14:30」→ 870（當天的第幾分鐘）；讀不出時間回 null */
+  const minutes = s => {
+    const m = String(s ?? '').match(/(\d{1,2}):(\d{2})/);
+    return m ? +m[1] * 60 + +m[2] : null;
+  };
+
+  /**
+   * 這張照片是哪一堂課拍的：當天所有課裡，**最後一堂已經開始**的那堂。
+   * 下課空檔、午休、放學後拍的（11:03、12:07、16:56 這種）因此會歸給
+   * 剛上完的那一堂，符合直覺 —— 那本來就是那堂課的延伸。
+   * 第一堂開始前拍的（09:06 進教室）算第一堂。
+   * 照片沒有拍攝時間、或課程表那天沒填時間 → 回 null，照片改掛在那一天底下。
+   */
+  function lessonAt(items, time) {
+    const at = minutes(time);
+    if (at == null) return null;
+
+    const timed = items
+      .map(l => ({ l, start: minutes(l.time) }))
+      .filter(x => x.start != null)
+      .sort((a, b) => a.start - b.start);
+    if (!timed.length) return null;
+
+    let hit = timed[0].l;
+    timed.forEach(x => { if (x.start <= at) hit = x.l; });
+    return hit;
+  }
+
   /* ── 讀分頁 ───────────────────────────────────────── */
 
   /**
@@ -123,6 +153,7 @@ const Log = (() => {
     return tab.body.map(r => ({
       week:    val(r, tab.idx.week),
       date:    val(r, tab.idx.date),
+      time:    val(r, tab.idx.time),
       topic:   val(r, tab.idx.topic),
       teacher: val(r, tab.idx.teacher),
       note:    val(r, tab.idx.note)
@@ -150,6 +181,7 @@ const Log = (() => {
 
     return tab.body.map(r => ({
       day:  dayKey(val(r, tab.idx.date)),
+      time: val(r, tab.idx.time),
       id:   val(r, tab.idx.fileId),
       name: val(r, tab.idx.name)
     })).filter(p => p.id && p.day);
@@ -169,7 +201,7 @@ const Log = (() => {
       const w = bucket(l.week || '未分週');
       if (!w.days.has(l.date)) w.days.set(l.date, { date: l.date, note: '', items: [], photos: [] });
       const day = w.days.get(l.date);
-      day.items.push(l);
+      day.items.push({ ...l, photos: [] });
       // 側記一天一則：同一天有多堂課時，取第一個有填的
       if (!day.note && l.note) day.note = l.note;
     });
@@ -183,7 +215,9 @@ const Log = (() => {
       }));
       photos.forEach(p => {
         const day = byDay.get(p.day);
-        if (day) day.photos.push(p);
+        if (!day) return;
+        const lesson = lessonAt(day.items, p.time);
+        (lesson || day).photos.push(p);
       });
     }
 
@@ -248,14 +282,14 @@ const Log = (() => {
    * Drive 的兩個圖片端點都會偶發失敗（實測各約六分之一），但不會同時掛，
    * 所以 lh3 掛掉就換 thumbnail。HEIC 由 Google 那端自動轉檔，瀏覽器看得到。
    */
-  function renderPhotos(day) {
-    if (!day.photos.length) return '';
+  function renderPhotos(photos, label) {
+    if (!photos.length) return '';
 
     const thumb = id => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200`;
     const shot = (p, i) => `
       <a class="lg-shot" href="https://drive.google.com/file/d/${esc(p.id)}/view"
          target="_blank" rel="noopener">
-        <img loading="lazy" alt="${esc(day.date)} 課堂照片 ${i + 1}"
+        <img loading="lazy" alt="${esc(label)} 照片 ${i + 1}"
              src="https://lh3.googleusercontent.com/d/${esc(p.id)}=w1200"
              onerror="this.onerror=null;this.src='${thumb(p.id)}'">
       </a>`;
@@ -263,9 +297,9 @@ const Log = (() => {
     const grid = (list, from) =>
       `<div class="lg-shots">${list.map((p, i) => shot(p, from + i)).join('')}</div>`;
 
-    const rest = day.photos.slice(MAX_SHOTS);
+    const rest = photos.slice(MAX_SHOTS);
     // 收在 <details> 裡的圖是 loading="lazy"，沒展開就不會去下載
-    return grid(day.photos.slice(0, MAX_SHOTS), 0) + (rest.length ? `
+    return grid(photos.slice(0, MAX_SHOTS), 0) + (rest.length ? `
       <details class="lg-more">
         <summary>
           <span class="lg-more-in">再看 ${rest.length} 張</span>
@@ -278,16 +312,21 @@ const Log = (() => {
   function renderDay(day) {
     const items = day.items.map(l => `
       <li class="lg-lesson">
-        <span class="lg-topic">${esc(l.topic)}</span>
-        ${l.teacher ? `<span class="lg-teacher">${esc(l.teacher)}</span>` : ''}
+        <div class="lg-lesson-head">
+          <span class="lg-topic">${esc(l.topic)}</span>
+          ${l.teacher ? `<span class="lg-teacher">${esc(l.teacher)}</span>` : ''}
+          ${l.time ? `<span class="lg-time">${esc(l.time)}</span>` : ''}
+          ${l.photos.length ? `<span class="lg-count">${l.photos.length} 張</span>` : ''}
+        </div>
+        ${renderPhotos(l.photos, l.topic)}
       </li>`).join('');
 
     return `
       <div class="lg-day">
         <div class="lg-date">${esc(day.date || '日期未填')}</div>
         ${day.note ? `<p class="lg-note">${esc(day.note)}</p>` : ''}
-        ${renderPhotos(day)}
         <ul class="lg-lessons">${items}</ul>
+        ${renderPhotos(day.photos, day.date)}
       </div>`;
   }
 

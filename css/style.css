@@ -1117,11 +1117,21 @@ main {
   object-fit: contain; background: rgba(0, 0, 0, .3);
 }
 
-.lg-lessons { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.lg-lesson { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; font-size: 13.5px; }
-.lg-lesson::before { content: '·'; color: var(--text-faint); }
+.lg-lessons { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.lg-lesson { font-size: 13.5px; }
+.lg-lesson-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.lg-lesson-head::before { content: '·'; color: var(--text-faint); }
 .lg-topic { color: var(--text); }
 .lg-teacher { font-size: 12px; color: var(--text-faint); }
+/* 那堂課的時段與張數：照片掛在哪一堂，是拿拍攝時間跟這個時段比對出來的 */
+.lg-time { font-size: 11.5px; color: var(--text-faint); letter-spacing: .03em; }
+.lg-count {
+  font-size: 11px; color: var(--cyan); padding: 1px 7px; border-radius: 999px;
+  background: rgba(255, 255, 255, .04); border: 1px solid var(--stroke);
+}
+/* 課底下的照片跟課名對齊（· 的寬度 + gap） */
+.lg-lesson .lg-shots,
+.lg-lesson .lg-more { margin-left: 15px; }
 
 /* ── 那一週的學習分析報告 ── */
 
