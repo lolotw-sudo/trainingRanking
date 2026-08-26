@@ -123,7 +123,7 @@
         </label>
         <label class="field">
           <span class="field-label">活躍度的滿分目標（整期累計加到幾分，就拿滿活躍度的配分）</span>
-          <input type="number" id="perfTarget" min="1" step="1" placeholder="40">
+          <input type="number" id="perfTarget" min="1" step="1" placeholder="70">
         </label>
         <div class="row-actions">
           <button class="btn btn-primary" id="btnSaveSheet">儲存並同步</button>
@@ -277,7 +277,7 @@
     // 加減分流水帳的分頁名稱；留空就不讀，活躍度改用總表的欄位
     logSheetName: '表現紀錄',
     // 活躍度的「整期滿分目標」：累計加到這個分數，就拿滿表現那一項的配分
-    perfTarget: 40,
+    perfTarget: 70,
 
     // 各項配分，相加＝學期成績滿分。練習賽那份由三場練習賽平分。
     weights: { quality: 30, performance: 20, exam: 50 },

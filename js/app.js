@@ -422,7 +422,7 @@
         sheetId: id,
         sheetName: $('#sheetName').value.trim(),
         logSheetName: $('#logSheetName').value.trim(),
-        perfTarget: isFinite(target) && target > 0 ? target : 50
+        perfTarget: isFinite(target) && target > 0 ? target : 70
       });
       $('#sheetUrl').value = id;
       $('#perfTarget').value = S().perfTarget;

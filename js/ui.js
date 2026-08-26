@@ -297,7 +297,7 @@ const UI = (() => {
   /** 活躍度的來源：累計了幾分、離滿分目標還有多遠 */
   function perfNoteHTML(r) {
     if (!r.perfLog) return '';
-    const goal = Store.state.perfTarget || 40;
+    const goal = Store.state.perfTarget || 70;
     const raw  = r.perfRaw || 0;
     return `<div class="pc-subrow">
       <span class="pc-chip">累計 <b>${raw > 0 ? '+' + raw : raw}</b> 分</span>

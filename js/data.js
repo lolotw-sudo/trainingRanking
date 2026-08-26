@@ -15,7 +15,7 @@ const Store = (() => {
     sheetId: BUILT_IN.sheetId || '',
     sheetName: BUILT_IN.sheetName || '',
     logSheetName: BUILT_IN.logSheetName || '',   // 加減分流水帳的分頁名；留空就不讀
-    perfTarget: BUILT_IN.perfTarget || 40,        // 活躍度的「整期滿分目標」加分數
+    perfTarget: BUILT_IN.perfTarget || 70,        // 活躍度的「整期滿分目標」加分數
     autoSync: false,
     // 配分：三項相加＝學期成績滿分。作業那 30 分由三份作業平分。
     weights: { ...{ quality: 30, performance: 20, exam: 50 }, ...(BUILT_IN.weights || {}) },
@@ -43,6 +43,9 @@ const Store = (() => {
         merged.sheetId = DEFAULTS.sheetId;
         merged.sheetName = DEFAULTS.sheetName;
       }
+      // 活躍度的滿分目標一律以 index.html 為準：設定分頁鎖了密碼進不去，
+      // 舊裝置存的目標值會蓋掉這裡調整過的新值，所以讓內建設定贏。
+      if (BUILT_IN.perfTarget) merged.perfTarget = BUILT_IN.perfTarget;
       return merged;
     } catch (e) {
       console.warn('[Store] 讀取本機資料失敗，改用預設值', e);
