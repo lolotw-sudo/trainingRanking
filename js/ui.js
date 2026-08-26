@@ -211,7 +211,7 @@ const UI = (() => {
     $('#drawerScrim').hidden = false;
 
     drawRadar($('#pcRadar'), r);
-    drawSparkline($('#pcSpark'), r.id);
+    drawSparkline($('#pcSpark'), r);
 
     requestAnimationFrame(() => {
       $$('#drawerBody .bar-fill').forEach(f => f.style.width = f.dataset.w + '%');
@@ -272,9 +272,9 @@ const UI = (() => {
 
       <div class="pc-section">
         <h4>名次走勢</h4>
-        ${hist.length >= 2
+        ${hist.length >= 1
           ? `<svg id="pcSpark" class="spark" viewBox="0 0 300 84" preserveAspectRatio="none"></svg>`
-          : `<p class="spark-empty">存檔兩個回合以上才會出現走勢圖。</p><svg id="pcSpark" hidden></svg>`}
+          : `<p class="spark-empty">存檔一個回合以後才會出現走勢圖。</p><svg id="pcSpark" hidden></svg>`}
       </div>
 
       <div class="pc-section">
@@ -405,10 +405,12 @@ const UI = (() => {
 
   /* ── 名次走勢 ─────────────────────────────────────── */
 
-  function drawSparkline(svg, id) {
+  function drawSparkline(svg, r) {
     if (!svg || svg.hidden) return;
     const hist = Store.state.history;
-    const series = hist.map(h => h.ranks[id]).filter(v => v != null);
+    // 存檔的回合只到上一次按快照為止，尾端接上此刻的名次，
+    // 走勢才看得出「存檔兩回合 + 現在」這三個點，而不是停在舊資料。
+    const series = [...hist.map(h => h.ranks[r.id]).filter(v => v != null), r.rank];
     if (series.length < 2) return;
 
     const W = 300, H = 84, pad = 10;
@@ -424,8 +426,18 @@ const UI = (() => {
         style="filter:drop-shadow(0 0 8px rgba(34,211,238,.7))"/>
       ${series.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5"
         fill="${i === series.length - 1 ? '#ffd54a' : '#22d3ee'}"/>`).join('')}
-      <text x="${pad}" y="${H - 1}" font-size="9" fill="#626b96">第 1 回合</text>
-      <text x="${W - pad}" y="${H - 1}" font-size="9" fill="#626b96" text-anchor="end">最新</text>`;
+      ${series.map((v, i) => {
+        const last = i === series.length - 1;
+        // 回合一多，逐點標會擠成一團，那時只留頭尾兩個
+        if (series.length > 5 && i > 0 && !last) return '';
+        const anchor = i === 0 ? 'start' : last ? 'end' : 'middle';
+        // 第一名的點貼著上緣，名次標籤要改放點的下方才不會被裁掉
+        const ly = y(v) < 22 ? y(v) + 14 : y(v) - 8;
+        return `<text x="${x(i).toFixed(1)}" y="${ly.toFixed(1)}" font-size="9"
+                  fill="${last ? '#ffd54a' : '#8b93bd'}" text-anchor="${anchor}">#${v}</text>
+                <text x="${x(i).toFixed(1)}" y="${H - 1}" font-size="9"
+                  fill="#626b96" text-anchor="${anchor}">${last ? '目前' : '第 ' + (i + 1) + ' 回合'}</text>`;
+      }).join('')}`;
 
     if (FX.animOn) {
       const line = svg.querySelector('polyline');
