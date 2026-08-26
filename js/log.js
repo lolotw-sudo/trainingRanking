@@ -199,11 +199,9 @@ const Log = (() => {
 
     lessons.forEach(l => {
       const w = bucket(l.week || '未分週');
-      if (!w.days.has(l.date)) w.days.set(l.date, { date: l.date, note: '', items: [], photos: [] });
-      const day = w.days.get(l.date);
-      day.items.push({ ...l, photos: [] });
-      // 側記一天一則：同一天有多堂課時，取第一個有填的
-      if (!day.note && l.note) day.note = l.note;
+      if (!w.days.has(l.date)) w.days.set(l.date, { date: l.date, items: [], photos: [] });
+      w.days.get(l.date).items.push({ ...l, photos: [] });
+      // 側記跟著它那一堂走（見 renderDay），不再收斂成一天一則
     });
 
     // 照片依拍攝日掛到對應那一天；課程表沒有那一天就不顯示
@@ -318,13 +316,13 @@ const Log = (() => {
           ${l.time ? `<span class="lg-time">${esc(l.time)}</span>` : ''}
           ${l.photos.length ? `<span class="lg-count">${l.photos.length} 張</span>` : ''}
         </div>
+        ${l.note ? `<p class="lg-note">${esc(l.note)}</p>` : ''}
         ${renderPhotos(l.photos, l.topic)}
       </li>`).join('');
 
     return `
       <div class="lg-day">
         <div class="lg-date">${esc(day.date || '日期未填')}</div>
-        ${day.note ? `<p class="lg-note">${esc(day.note)}</p>` : ''}
         <ul class="lg-lessons">${items}</ul>
         ${renderPhotos(day.photos, day.date)}
       </div>`;

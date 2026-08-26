@@ -1131,7 +1131,8 @@ main {
 }
 /* 課底下的照片跟課名對齊（· 的寬度 + gap） */
 .lg-lesson .lg-shots,
-.lg-lesson .lg-more { margin-left: 15px; }
+.lg-lesson .lg-more,
+.lg-lesson .lg-note { margin-left: 15px; }
 
 /* ── 那一週的學習分析報告 ── */
 
