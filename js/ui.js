@@ -238,6 +238,7 @@ const UI = (() => {
           <div class="pc-sub">
             <span class="tier tier-${r.tier}">${r.tier}</span>
             ${r.team ? `<span class="team-tag">${esc(r.team)}</span>` : ''}
+            ${r.unit ? `<span class="team-tag unit-tag">${esc(r.unit)}</span>` : ''}
           </div>
         </div>
       </div>
@@ -268,8 +269,6 @@ const UI = (() => {
         </div>
       </div>
 
-      ${perfLogHTML(r)}
-
       <div class="pc-section">
         <h4>名次走勢</h4>
         ${hist.length >= 1
@@ -282,7 +281,9 @@ const UI = (() => {
         <div class="pc-badges">
           ${r.badges.map(b => `<span class="pc-badge">${b.icon} ${esc(b.name)}</span>`).join('')}
         </div>
-      </div>`;
+      </div>
+
+      ${perfLogHTML(r)}`;
   }
 
   /** 三場練習賽各自幾分；留白的顯示「未評」，代表它還沒被加進累積總分 */

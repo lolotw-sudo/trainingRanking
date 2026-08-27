@@ -276,6 +276,7 @@ const Sheet = (() => {
     seat:        ['座號', '座位', '號次', '學號', '編號', 'seat'],
     name:        ['姓名', '學員', '學員姓名', '名字', 'name', 'student'],
     team:        ['組別', '公會', '隊伍', '小組', '組', 'team', 'group'],
+    unit:        ['單位', '營運處', 'unit', 'dept'],
     avatar:      ['頭像', '圖示', 'avatar', 'emoji', 'icon'],
     hw1:         ['作業1', '作業一', '練習賽1', 'hw1'],
     hw2:         ['作業2', '作業二', '練習賽2', 'hw2'],
@@ -407,6 +408,7 @@ const Sheet = (() => {
         // 純數字的「01」則原樣保留，前導零不會掉。
         seat: (pick(r, idx.seat).match(/^\s*(\d+)/) || [, pick(r, idx.seat)])[1],
         team: pick(r, idx.team),
+        unit: pick(r, idx.unit),
         avatar: pickAvatar(pick(r, idx.avatar), n),
         assignments,
         quality: hasHw ? avg(graded.map(a => a.score)) : clamp100(pick(r, idx.quality)),
@@ -635,7 +637,7 @@ const Sheet = (() => {
     return [...rounds.keys()].sort((a, b) => a - b).map(no => rounds.get(no));
   }
 
-  const TEMPLATE_HEADER = '座號\t姓名\t組別\t頭像\t作業1\t作業2\t作業3\t考試成績';
+  const TEMPLATE_HEADER = '座號\t姓名\t組別\t單位\t頭像\t作業1\t作業2\t作業3\t考試成績';
   const LOG_TEMPLATE_HEADER = '日期\t堂次\t學員\t加減分\t事由\t老師';
 
   /** 17 人示範資料，讓沒接試算表時也能立刻看到效果 */
@@ -643,6 +645,7 @@ const Sheet = (() => {
     const names = ['陳彥廷','林佳蓉','黃冠宇','張雅婷','李承翰','吳思妤','王柏叡','劉宜靜','蔡孟儒',
                    '鄭雅文','許家豪','謝欣怡','洪志明','曾郁涵','邱建華','周美玲','潘冠霖'];
     const teams = ['雷霆隊','疾風隊','烈焰隊','曜石隊'];
+    const units = ['台北營運處','新北營運處','桃園營運處','基隆營運處'];
     return names.map((name, i) => {
       const assignments = HW_LABELS.map(label => ({ label, score: Math.round(58 + Math.random() * 42) }));
       return {
@@ -650,6 +653,7 @@ const Sheet = (() => {
         name,
         seat: String(i + 1).padStart(2, '0'),
         team: teams[i % 4],
+        unit: units[(i + 1) % 4],
         avatar: FALLBACK_AVATARS[i % FALLBACK_AVATARS.length],
         assignments,
         quality:     avg(assignments.map(a => a.score)),
