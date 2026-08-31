@@ -24,6 +24,11 @@ const Log = (() => {
   /** 一格內的多行拆成陣列（學員回饋、改善方向都是一格多則） */
   const lines = s => s.split(/\r?\n/).map(t => t.trim()).filter(Boolean);
 
+  /** 回饋一則一行；但某一則本身就有換行時（例如整封信），改成用空行分則 */
+  const blocks = s => (/\r?\n[ \t]*\r?\n/.test(s)
+    ? s.split(/\r?\n[ \t]*\r?\n/)
+    : s.split(/\r?\n/)).map(t => t.trim()).filter(Boolean);
+
   let cache = null;      // 讀成功就留著，切分頁不重讀
   let loading = false;
 
@@ -53,7 +58,11 @@ const Log = (() => {
     summary: ['摘要', '概述'],
     voices:  ['學員回饋', '回饋', '學員意見'],
     review:  ['成效評估', '評估', '成效'],
-    actions: ['改善方向', '改善', '調整']
+    actions: ['改善方向', '改善', '調整'],
+    // 以下三欄是選配的「整期總評」，只有最後一週會填
+    sumStats:  ['整體數據'],
+    sumReview: ['整體評估'],
+    sumVoices: ['整體回饋']
   };
 
   /** 依別名比對表頭，回傳 {欄位: 索引}；找不到的是 -1 */
@@ -169,9 +178,12 @@ const Log = (() => {
       range:   val(r, tab.idx.range),
       stats:   val(r, tab.idx.stats),
       summary: val(r, tab.idx.summary),
-      voices:  lines(val(r, tab.idx.voices)),
+      voices:  blocks(val(r, tab.idx.voices)),
       review:  val(r, tab.idx.review),
-      actions: lines(val(r, tab.idx.actions))
+      actions: lines(val(r, tab.idx.actions)),
+      sumStats:  val(r, tab.idx.sumStats),
+      sumReview: val(r, tab.idx.sumReview),
+      sumVoices: blocks(val(r, tab.idx.sumVoices))
     })).filter(rep => rep.week);
   }
 
@@ -252,14 +264,26 @@ const Log = (() => {
 
     const para = t => t ? `<p class="rp-text">${esc(t)}</p>` : '';
 
-    const voices = rep.voices.length
-      ? `<div class="rp-voices">${rep.voices.map(v =>
+    const quotes = list => list.length
+      ? `<div class="rp-voices">${list.map(v =>
           `<blockquote class="rp-voice">${esc(v)}</blockquote>`).join('')}</div>`
       : '';
+
+    const voices = quotes(rep.voices);
 
     const actions = rep.actions.length
       ? `<ul class="rp-actions">${rep.actions.map(a =>
           `<li>${esc(a)}</li>`).join('')}</ul>`
+      : '';
+
+    // 整期總評：三欄都空就整塊不畫
+    const summaryBlock = (rep.sumStats || rep.sumReview || rep.sumVoices.length)
+      ? `<div class="rp-block rp-overall">
+           <h4 class="rp-h">這一期整體來看</h4>
+           ${rep.sumStats ? renderStats(rep.sumStats) : ''}
+           ${para(rep.sumReview)}
+           ${quotes(rep.sumVoices)}
+         </div>`
       : '';
 
     return `
@@ -273,6 +297,7 @@ const Log = (() => {
         ${block('學員說了什麼', voices)}
         ${block('學習成效', para(rep.review))}
         ${block('我接下來會這樣調整', actions)}
+        ${summaryBlock}
       </div>`;
   }
 

@@ -1171,14 +1171,20 @@ main {
   border-left: 3px solid var(--magenta);
   background: rgba(232,121,249,.07);
   font-size: 13px; line-height: 1.75; color: var(--text);
+  white-space: pre-line;   /* 讓整封信的分段留著 */
 }
 
 .rp-actions { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
 .rp-actions li { font-size: 13px; line-height: 1.75; color: var(--text); }
 .rp-actions li::marker { color: var(--lime); }
 
+/* 整期總評：跟每週的段落之間拉一條分隔線，讓它看起來是另一個章節 */
+.rp-overall { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--stroke); }
+.rp-overall .rp-stat-value { color: var(--cyan); }
+
 @media (max-width: 560px) {
   .rp { padding: 15px; }
   .rp-stat { flex: 1 1 100%; }
+  .rp-overall .rp-stat { flex: 1 1 40%; }   /* 總評卡片較多，手機上排兩欄 */
   .lg-day { padding-left: 16px; }
 }
