@@ -408,7 +408,7 @@
   /* ── 事件綁定 ─────────────────────────────────────── */
 
   function bindEvents() {
-    $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
+    $$('.tab[data-view]').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
 
     $('#btnSync').addEventListener('click', () => sync());
     $('#btnSnapshot').addEventListener('click', snapshot);

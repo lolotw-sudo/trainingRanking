@@ -167,6 +167,7 @@ code {
   transition: color .2s, background .3s;
   white-space: nowrap;
 }
+a.tab { text-decoration: none; display: inline-flex; align-items: center; }
 .tab:hover { color: var(--text); }
 .tab.is-active {
   color: #05060f;
@@ -808,7 +809,12 @@ main {
 
 @media (max-width: 880px) {
   .topbar { flex-wrap: wrap; gap: 10px; }
-  .tabs { order: 3; width: 100%; margin-left: 0; justify-content: center; }
+  .tabs { order: 3; width: 100%; margin-left: 0; justify-content: safe center; overflow-x: auto; scrollbar-width: none; }
+  .tab { padding: 8px 10px; }
+}
+@media (max-width: 520px) {
+  .tabs { gap: 2px; }
+  .tab { padding: 8px 6px; font-size: 13px; }
   .topbar-actions { margin-left: auto; }
   .btn-label { display: none; }
   .btn { padding: 9px 12px; }
